@@ -111,7 +111,7 @@ void handleTerminal(CONNECTION_INFO *job)
 		WSACleanup();
 	}
 
-}
+} 
 
 // Function that all worker threads will iterate
 DWORD WINAPI workConnections(LPVOID dummy)
