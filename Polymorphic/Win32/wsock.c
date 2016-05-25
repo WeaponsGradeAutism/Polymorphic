@@ -28,6 +28,7 @@ typedef struct {
 	int infoID; // the serviceID or peerID this socket represents
 	WSABUF buffer; // buffer where IOCP data is stored before completion packet is passed
 	int request; // if a request was made by this peer, indicate it here so that worker threads can hadle properly when they receive a response
+	HANDLE checkAliveTimer; // the timer that periodically checks to see if the connection is still alive
 	int byteCount; // IOCP will put bytes buffered by response here. Although the wait function also returns the same thing. Basically used as a dummy for the IOCP create fucntion.
 	int flags; // used by IOCP
 	WSAOVERLAPPED overlap; // used by IOCP
@@ -38,14 +39,13 @@ typedef struct {
 THREAD_INFO listenThread;
 THREAD_INFO acceptThread;
 HANDLE completionPort;
+HANDLE checkAliveTimerQueue;
 const int numWorkerThreads = 30;
 const maxConnections = 500;
+//const checkAliveInterval = 300000;
+const checkAliveInterval = 10000;
 int numConnections = 0;
 int isShutdown = 0;
-
-CRITICAL_SECTION queueCritSection;
-CONDITION_VARIABLE queueWorkAvailable;
-CONDITION_VARIABLE queueWorkerAvailable;
 
 int initSocketLib() 
 {
@@ -55,6 +55,7 @@ int initSocketLib()
 
 int closeSocketLib()
 {
+	isShutdown = 1;
 	return WSACleanup();
 }
 
@@ -62,6 +63,7 @@ void closeConnection(CONNECTION_INFO *info)
 {
 	shutdown(info->socket, SD_BOTH);
 	closesocket(info->socket);
+	DeleteTimerQueueTimer(checkAliveTimerQueue, info->checkAliveTimer, INVALID_HANDLE_VALUE);
 	free(info->buffer.buf);
 	free(info);
 }
@@ -87,6 +89,7 @@ int handleTerminal(CONNECTION_INFO *job)
 	else if (job->byteCount < 3)
 	{
 		printf("Connection closing...\n");
+		printf("CONNECTIONS: %i\n", --numConnections);
 		closeConnection(job);
 		return 0;
 	}
@@ -95,18 +98,26 @@ int handleTerminal(CONNECTION_INFO *job)
 		WSACleanup();
 	}
 
+	return 1;
+
 } 
 
 // Function that all worker threads will iterate
 DWORD WINAPI workConnections(LPVOID dummy)
 {
 
-	while (!isShutdown) {
+	while (1) {
 		int bytesTansferred;
-		CONNECTION_INFO* connection;
-		OVERLAPPED lap;
-		// GetQueuedCompletionStatus(completionPort, &bytesTansferred, (PULONG_PTR)&connection, NULL, INFINITE);
+		CONNECTION_INFO *connection;
+		OVERLAPPED *lap;
+
 		GetQueuedCompletionStatus(completionPort, &bytesTansferred, (PULONG_PTR)&connection, &lap, INFINITE);
+
+		if (isShutdown)
+			break;
+
+		ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
+
 		connection->byteCount = bytesTansferred;
 
 		if (handleTerminal(connection))
@@ -119,19 +130,28 @@ DWORD WINAPI workConnections(LPVOID dummy)
 		// sent requests ect
 		// wait for work
 
-		
 	}
 
 	ExitThread(0);
 }
 
+
+// WARN: We may need to synchronize this with sends on worker threads. Maybe not because send is blocking. I'm not sure.
+// I imagine collisions will be very rare. If not synchronizing this causes a bug, it will be as rare.
+VOID CALLBACK checkAlive(PVOID connection, BOOLEAN fired)
+{
+	printf("CHECK-ALIVE: %i\n", send(((CONNECTION_INFO*)connection)->socket, "still there?\n", 13, 0));
+}
+
 // Function for control thread that accepts new connections
 DWORD WINAPI acceptNewConnections(LPVOID dummy)
 {
-	while (!isShutdown)
+	while (1)
 	{
 		CONNECTION_INFO *info = malloc(sizeof(CONNECTION_INFO));
 		info->socket = accept(acceptSocket, NULL, NULL);
+		if (isShutdown)
+			break;
 		if (numConnections == maxConnections)
 		{
 			send(info->socket, "fuck off we're full\n", 21, 0);
@@ -144,6 +164,7 @@ DWORD WINAPI acceptNewConnections(LPVOID dummy)
 			info->overlap.hEvent = NULL;
 			info->byteCount = 0;
 			info->flags = 0;
+			CreateTimerQueueTimer(&info->checkAliveTimer, checkAliveTimerQueue, checkAlive, info, checkAliveInterval, checkAliveInterval, 0);
 			CreateIoCompletionPort((HANDLE)info->socket, completionPort, (ULONG_PTR)info, 0);
 			WSARecv(info->socket, &info->buffer, 1, &info->byteCount, &info->flags, &info->overlap, NULL);
 			printf("CONNECTIONS: %i\n", ++numConnections);
@@ -155,9 +176,7 @@ DWORD WINAPI acceptNewConnections(LPVOID dummy)
 int startListenSocket(char* port) 
 {
 	initSocketLib();
-	InitializeCriticalSectionAndSpinCount(&queueCritSection, 1000);
-	InitializeConditionVariable(&queueWorkAvailable);
-	InitializeConditionVariable(&queueWorkerAvailable);
+	checkAliveTimerQueue = CreateTimerQueue();
 
 	struct addrinfo *result = NULL, *ptr = NULL, hints;
 

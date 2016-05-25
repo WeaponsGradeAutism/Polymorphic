@@ -34,6 +34,12 @@ int main(int argc,
 
 	(void)getchar();
 
+	printf("Stopping server daemon: ");
+	if (closeSocketLib() == 0)
+		printf("OK.\n");
+	else
+		printf("FAILED.\n");
+
 	printf("Closing SQLite Database: ");
 	if (closeDatabase(db) == SQLITE_OK)
 		printf("OK.\n");
