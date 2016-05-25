@@ -1,7 +1,12 @@
 # Polymorphic
-web services that can take many forms
+p2p services that can take many forms
 
 DEPENDENCIES:
 
 - sqlite3
-- pthread
+
+Win32: Uses Win32 sockets, threads, and IOCP
+
+EPoll: Uses POSIX sockets and threads, with EPoll
+
+Kqueue: Uses POSIX sockets and threads, with Kqueue
