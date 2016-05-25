@@ -21,25 +21,23 @@ typedef struct {
 	HANDLE threadHandle;
 } THREAD_INFO;
 
-// Complicated struct. Houses connection state and varios data structures required for IOCP to function.
+// Complicated struct. Houses connection state and various data structures required for IOCP to function.
 typedef struct {
-	SOCKET socket;
-	int mode;
+	SOCKET socket; // the actual socket handle itself. the star of the show
+	int mode; // is this socket connected to a local service or a peer? MODE_SERVICE or MODE_PEER
 	int infoID; // the serviceID or peerID this socket represents
-	WSABUF buffer;
-	int byteCount;
-	int flags;
-	int request;
-	WSAOVERLAPPED overlap;
-	struct sockaddr address;
-	int addrlen;
+	WSABUF buffer; // buffer where IOCP data is stored before completion packet is passed
+	int request; // if a request was made by this peer, indicate it here so that worker threads can hadle properly when they receive a response
+	int byteCount; // IOCP will put bytes buffered by response here. Although the wait function also returns the same thing. Basically used as a dummy for the IOCP create fucntion.
+	int flags; // used by IOCP
+	WSAOVERLAPPED overlap; // used by IOCP
+	struct sockaddr address; // raw address daa provided by WCAAccept
+	int addrlen; // raw address daa provided by WCAAccept
 } CONNECTION_INFO ;
 
 THREAD_INFO listenThread;
 THREAD_INFO acceptThread;
-CONNECTION_INFO* workQueue;
 HANDLE completionPort;
-int queuedJob = 0;
 const int numWorkerThreads = 30;
 const maxConnections = 500;
 int numConnections = 0;
@@ -60,21 +58,6 @@ int closeSocketLib()
 	return WSACleanup();
 }
 
-// Wake thread and hand it a job. Will block until a thread is avilable if pool is saturated.
-/*int enqueueJob(CONNECTION_INFO *job)
-{
-	EnterCriticalSection(&queueCritSection);
-	while (workersAvailable == 0)
-	{
-		SleepConditionVariableCS(&queueWorkerAvailable, &queueCritSection, INFINITE);
-	}
-	workQueue = job;
-	queuedJob = 1;
-	LeaveCriticalSection(&queueCritSection);
-	WakeConditionVariable(&queueWorkAvailable);
-	return 0;
-}*/
-
 void closeConnection(CONNECTION_INFO *info)
 {
 	shutdown(info->socket, SD_BOTH);
@@ -83,13 +66,13 @@ void closeConnection(CONNECTION_INFO *info)
 	free(info);
 }
 
-void handleTerminal(CONNECTION_INFO *job)
+int handleTerminal(CONNECTION_INFO *job)
 {
 
 	int iSendResult;
 
 	//iResult = recv(job->socket, recvbuf, 500, 0);
-	if (job->byteCount > 0) {
+	if (job->byteCount > 2) {
 		printf("Bytes received: %d\n", job->byteCount);
 
 		// Echo the buffer back to the sender
@@ -105,6 +88,7 @@ void handleTerminal(CONNECTION_INFO *job)
 	{
 		printf("Connection closing...\n");
 		closeConnection(job);
+		return 0;
 	}
 	else {
 		printf("recv failed with error: %d\n", WSAGetLastError());
@@ -120,15 +104,22 @@ DWORD WINAPI workConnections(LPVOID dummy)
 	while (!isShutdown) {
 		int bytesTansferred;
 		CONNECTION_INFO* connection;
-		GetQueuedCompletionStatus(completionPort, &bytesTansferred, (PULONG_PTR)&connection, NULL, INFINITE);
+		OVERLAPPED lap;
+		// GetQueuedCompletionStatus(completionPort, &bytesTansferred, (PULONG_PTR)&connection, NULL, INFINITE);
+		GetQueuedCompletionStatus(completionPort, &bytesTansferred, (PULONG_PTR)&connection, &lap, INFINITE);
 		connection->byteCount = bytesTansferred;
 
-		handleTerminal(connection);
+		if (handleTerminal(connection))
+		{
+			WSARecv(connection->socket, &connection->buffer, 1, &connection->byteCount, &connection->flags, &connection->overlap, NULL);
+		}
 
 		// determine source
 		// process relevant data
 		// sent requests ect
 		// wait for work
+
+		
 	}
 
 	ExitThread(0);
@@ -155,7 +146,7 @@ DWORD WINAPI acceptNewConnections(LPVOID dummy)
 			info->flags = 0;
 			CreateIoCompletionPort((HANDLE)info->socket, completionPort, (ULONG_PTR)info, 0);
 			WSARecv(info->socket, &info->buffer, 1, &info->byteCount, &info->flags, &info->overlap, NULL);
-			numConnections++;
+			printf("CONNECTIONS: %i\n", ++numConnections);
 		}
 	}
 	ExitThread(0);
