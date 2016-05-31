@@ -7,7 +7,7 @@
 #include <ws2tcpip.h>
 #include <stdio.h>
 #include <windows.h>
-#include <commands.cpp>
+#include <commands.h>
 #include <vector.h>
 
 #define MODE_SERVICE 0
@@ -81,9 +81,9 @@ void connection_array_init(connection_array *vector) {
 	vector->vacancies.capacity = VECTOR_INITIAL_CAPACITY;
 
 	// allocate memory for vector->data
-	vector->connections.data = malloc(sizeof(CONNECTION**) * vector->connections.capacity);
-	vector->strings.data = malloc(sizeof(CONNECTION**) * vector->strings.capacity);
-	vector->vacancies.data = malloc(sizeof(CONNECTION**) * vector->vacancies.capacity);
+	vector->connections.data = malloc(sizeof(CONNECTION*) * vector->connections.capacity);
+	vector->strings.data = malloc(sizeof(char*) * vector->strings.capacity);
+	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
 }
 
 void connection_array_init_capacity(connection_array *vector, int capacity) {
@@ -97,25 +97,25 @@ void connection_array_init_capacity(connection_array *vector, int capacity) {
 	vector->vacancies.capacity = capacity;
 
 	// allocate memory for vector->data
-	vector->connections.data = malloc(sizeof(CONNECTION**) * vector->connections.capacity);
-	vector->strings.data = malloc(sizeof(CONNECTION**) * vector->strings.capacity);
-	vector->vacancies.data = malloc(sizeof(CONNECTION**) * vector->vacancies.capacity);
+	vector->connections.data = malloc(sizeof(CONNECTION*) * vector->connections.capacity);
+	vector->strings.data = malloc(sizeof(char*) * vector->strings.capacity);
+	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
 }
 
 void connection_array_double_capacity_if_full(connection_array *vector) {
 	if (vector->connections.capacity == 0)
 	{
 		vector->connections.capacity = VECTOR_INITIAL_CAPACITY;
-		vector->connections.data = malloc(sizeof(CONNECTION**) * vector->connections.capacity);
+		vector->connections.data = malloc(sizeof(CONNECTION*) * vector->connections.capacity);
 		vector->strings.capacity = VECTOR_INITIAL_CAPACITY;
-		vector->strings.data = malloc(sizeof(CONNECTION**) * vector->strings.capacity);
+		vector->strings.data = malloc(sizeof(char*) * vector->strings.capacity);
 	}
 	if (vector->connections.size >= vector->connections.capacity) {
 		// double vector->capacity and resize the allocated memory accordingly
 		vector->connections.capacity *= 2;
-		vector->connections.data = realloc(vector->connections.data, sizeof(int) * vector->connections.capacity);
+		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION*) * vector->connections.capacity);
 		vector->strings.capacity *= 2;
-		vector->strings.data = realloc(vector->strings.data, sizeof(int) * vector->strings.capacity);
+		vector->strings.data = realloc(vector->strings.data, sizeof(char*) * vector->strings.capacity);
 	}
 }
 
@@ -123,7 +123,7 @@ void conenction_array_double_vacancy_capacity_if_full(connection_array *vector) 
 	if (vector->vacancies.capacity == 0)
 	{
 		vector->vacancies.capacity = VECTOR_INITIAL_CAPACITY;
-		vector->vacancies.data = malloc(sizeof(CONNECTION**) * vector->vacancies.capacity);
+		vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
 	}
 	if (vector->vacancies.size >= vector->vacancies.capacity) {
 		// double vector->capacity and resize the allocated memory accordingly
@@ -132,17 +132,18 @@ void conenction_array_double_vacancy_capacity_if_full(connection_array *vector) 
 	}
 }
 
-int connection_array_append(connection_array *vector, CONNECTION *value)
+int connection_array_append(connection_array *vector, CONNECTION *connection, char *string)
 {
-	if (value == NULL)
+	if (connection == NULL || string == NULL)
 		return -1;
 
 	// make sure there's room to expand into
 	connection_array_double_capacity_if_full(vector);
 
 	// append the value and increment vector->size
-	int index = vector->members.size++;
-	vector->members.data[index] = value;
+	int index = vector->connections.size++;
+	vector->connections.data[index] = connection;
+	vector->strings.data[vector->strings.size++] = string;
 	return index;
 }
 
@@ -157,78 +158,91 @@ void connection_array_pop_vacancy(connection_array *vector)
 	vector->vacancies.size--;
 }
 
-int connection_array_push(connection_array *vector, CONNECTION *value) {
+int connection_array_push(connection_array *vector, CONNECTION *connection, char *string) {
 
-	if (value == NULL)
+	if (connection == NULL || string == NULL)
 		return -1;
 
 	if (vector->vacancies.size > 0)
 	{
 		int index = connection_array_get_vacancy(vector);
-		vector->members.data[index] = value;
+		vector->connections.data[index] = connection;
+		vector->strings.data[index] = string;
 		connection_array_pop_vacancy(vector);
 		return index;
 	}
 	else
 	{
-		return connection_array_append(vector, value);
+		return connection_array_append(vector, connection, string);
 	}
 
 }
 
 int connection_array_delete(connection_array *vector, int index)
 {
-	if (index >= vector->members.size || index < 0 || vector->members.data[index] == NULL)
+	if (index >= vector->connections.size || index < 0 || vector->connections.data[index] == NULL)
 		return -1;
 
 	conenction_array_double_vacancy_capacity_if_full(vector);
 	vector->vacancies.data[vector->vacancies.size++] = index;
-	vector->members.data[index] = NULL;
+	vector->connections.data[index] = NULL;
+	vector->strings.data[index] = NULL;
 
 	return 0;
 }
 
-CONNECTION* connection_array_get(connection_array *vector, int index) {
-	if (index >= vector->members.size || index < 0) {
-		printf("Index %d out of bounds for vector of size %d\n", index, vector->members.size);
-		exit(1);
-	}
+CONNECTION* connection_array_get_connection(connection_array *vector, int index) {
+	if (index >= vector->connections.size || index < 0)
+		return NULL;
 
-	return vector->members.data[index];
+	return vector->connections.data[index];
 }
 
-int connection_array_set(connection_array *vector, int index, CONNECTION *value) {
+char* connection_array_get_string(connection_array *vector, int index) {
+	if (index >= vector->strings.size || index < 0)
+		return NULL;
+
+	return vector->strings.data[index];
+}
+
+int connection_array_set(connection_array *vector, int index, CONNECTION *connection, char *string) {
 	// fail if out of bounds
 
-	if (value == NULL)
+	if (connection == NULL || string == NULL)
 		return -1;
 
-	if (vector->members.data[index] == NULL)
+	if (vector->connections.data[index] == NULL)
 		return -1;
 
-	if (index >= vector->members.size || index < 0) {
+	if (index >= vector->connections.size || index < 0) {
 		return -1;
 	}
 
 	// set the value at the desired index
-	vector->members.data[index] = value;
+	vector->connections.data[index] = connection;
+	vector->strings.data[index] = string;
 	return 0;
 }
 
 void connection_array_trim(connection_array *vector) {
 	//trim capacity down to the size of the array
-	if (vector->members.size == 0)
+	if (vector->connections.size == 0)
 	{
 		//if there are no elements, free the memory and create a null pointer
-		free(vector->members.data);
-		vector->members.data = NULL;
-		vector->members.capacity = 0;
+		free(vector->connections.data);
+		free(vector->strings.data);
+		vector->connections.data = NULL;
+		vector->strings.data = NULL;
+		vector->connections.capacity = 0;
+		vector->strings.capacity = 0;
 	}
 	else
 	{
 		//size the memory allocation down to its size
-		vector->members.data = realloc(vector->members.data, sizeof(CONNECTION**) * vector->members.size);
-		vector->members.capacity = vector->members.size;
+		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION*) * vector->connections.size);
+		vector->strings.data = realloc(vector->strings.data, sizeof(char*) * vector->strings.size);
+		vector->connections.capacity = vector->connections.size;
+		vector->strings.capacity = vector->strings.size;
 	}
 
 	if (vector->vacancies.size == 0)
@@ -248,7 +262,8 @@ void connection_array_trim(connection_array *vector) {
 }
 
 void connection_array_free(connection_array *vector) {
-	free(vector->members.data);
+	free(vector->connections.data);
+	free(vector->strings.data);
 	free(vector->vacancies.data);
 }
 

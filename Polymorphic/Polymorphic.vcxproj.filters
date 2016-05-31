@@ -27,7 +27,7 @@
     <ClCompile Include="Win32\wsock.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="commands.cpp">
+    <ClCompile Include="commands.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
