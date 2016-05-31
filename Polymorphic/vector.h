@@ -22,7 +22,7 @@ void vector_free(vector *vector);
 
 //Int vector
 
-typedef struct  {
+typedef struct {
 	int size;      // slots used so far
 	int capacity;  // total available slots
 	int *data;     // array of integers we're storing
@@ -35,6 +35,22 @@ int int_vector_get(int_vector *vector, int index);
 bool int_vector_set(int_vector *vector, int index, int value);
 void int_vector_trim(int_vector *vector);
 void int_vector_free(int_vector *vector);
+
+//string vector
+
+typedef struct {
+	int size;      // slots used so far
+	int capacity;  // total available slots
+	char **data;     // array of integers we're storing
+} string_vector;
+
+void string_vector_init(string_vector *vector);
+void string_vector_init_capacity(string_vector *vector, int capacity);
+void string_vector_append(string_vector *vector, char* value);
+int string_vector_get(string_vector *vector, int index);
+bool string_vector_set(string_vector *vector, int index, char* value);
+void string_vector_trim(string_vector *vector);
+void string_vector_free(string_vector *vector);
 
 // Self-filling int array
 

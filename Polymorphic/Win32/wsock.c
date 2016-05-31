@@ -47,7 +47,8 @@ typedef struct {
 } connection_vector;
 
 typedef struct {
-	connection_vector members;
+	connection_vector connections;
+	string_vector strings;
 	int_vector vacancies;
 } connection_array;
 
@@ -72,45 +73,56 @@ int isShutdown = 0;
 
 void connection_array_init(connection_array *vector) {
 	// initialize size and capacity
-	vector->members.size = 0;
-	vector->members.capacity = 50;
+	vector->connections.size = 0;
+	vector->connections.capacity = VECTOR_INITIAL_CAPACITY;
+	vector->strings.size = 0;
+	vector->strings.capacity = VECTOR_INITIAL_CAPACITY;
 	vector->vacancies.size = 0;
-	vector->vacancies.capacity = 50;
+	vector->vacancies.capacity = VECTOR_INITIAL_CAPACITY;
 
 	// allocate memory for vector->data
-	vector->members.data = malloc(sizeof(CONNECTION**) * vector->members.capacity);
+	vector->connections.data = malloc(sizeof(CONNECTION**) * vector->connections.capacity);
+	vector->strings.data = malloc(sizeof(CONNECTION**) * vector->strings.capacity);
 	vector->vacancies.data = malloc(sizeof(CONNECTION**) * vector->vacancies.capacity);
 }
 
 void connection_array_init_capacity(connection_array *vector, int capacity) {
 	// initialize size and capacity
-	vector->members.size = 0;
-	vector->members.capacity = capacity;
+	// initialize size and capacity
+	vector->connections.size = 0;
+	vector->connections.capacity = capacity;
+	vector->strings.size = 0;
+	vector->strings.capacity = capacity;
 	vector->vacancies.size = 0;
 	vector->vacancies.capacity = capacity;
 
 	// allocate memory for vector->data
-	vector->members.data = malloc(sizeof(CONNECTION**) * vector->members.capacity);
+	vector->connections.data = malloc(sizeof(CONNECTION**) * vector->connections.capacity);
+	vector->strings.data = malloc(sizeof(CONNECTION**) * vector->strings.capacity);
 	vector->vacancies.data = malloc(sizeof(CONNECTION**) * vector->vacancies.capacity);
 }
 
 void connection_array_double_capacity_if_full(connection_array *vector) {
-	if (vector->members.capacity == 0)
+	if (vector->connections.capacity == 0)
 	{
-		vector->members.capacity = 50;
-		vector->members.data = malloc(sizeof(CONNECTION**) * vector->members.capacity);
+		vector->connections.capacity = VECTOR_INITIAL_CAPACITY;
+		vector->connections.data = malloc(sizeof(CONNECTION**) * vector->connections.capacity);
+		vector->strings.capacity = VECTOR_INITIAL_CAPACITY;
+		vector->strings.data = malloc(sizeof(CONNECTION**) * vector->strings.capacity);
 	}
-	if (vector->members.size >= vector->members.capacity) {
+	if (vector->connections.size >= vector->connections.capacity) {
 		// double vector->capacity and resize the allocated memory accordingly
-		vector->members.capacity *= 2;
-		vector->members.data = realloc(vector->members.data, sizeof(int) * vector->members.capacity);
+		vector->connections.capacity *= 2;
+		vector->connections.data = realloc(vector->connections.data, sizeof(int) * vector->connections.capacity);
+		vector->strings.capacity *= 2;
+		vector->strings.data = realloc(vector->strings.data, sizeof(int) * vector->strings.capacity);
 	}
 }
 
 void conenction_array_double_vacancy_capacity_if_full(connection_array *vector) {
 	if (vector->vacancies.capacity == 0)
 	{
-		vector->vacancies.capacity = 50;
+		vector->vacancies.capacity = VECTOR_INITIAL_CAPACITY;
 		vector->vacancies.data = malloc(sizeof(CONNECTION**) * vector->vacancies.capacity);
 	}
 	if (vector->vacancies.size >= vector->vacancies.capacity) {
