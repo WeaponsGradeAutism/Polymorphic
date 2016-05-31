@@ -35,3 +35,20 @@ int int_vector_get(int_vector *vector, int index);
 bool int_vector_set(int_vector *vector, int index, int value);
 void int_vector_trim(int_vector *vector);
 void int_vector_free(int_vector *vector);
+
+// Self-filling int array
+
+typedef struct {
+	int_vector members;
+	int_vector vacancies;
+} int_array;
+
+void int_array_init(int_array *vector);
+void int_array_init_capacity(int_array *vector, int capacity);
+int int_array_append(int_array *vector, int value);
+int int_array_push(int_array *vector, int value);
+int int_array_delete(int_array *vector, int index);
+int int_array_get(int_array *vector, int index);
+bool int_array_set(int_array *vector, int index, int value);
+void int_array_trim(int_array *vector);
+void int_array_free(int_array *vector);

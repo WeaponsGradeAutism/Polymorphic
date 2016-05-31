@@ -136,6 +136,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="commands.cpp" />
     <ClCompile Include="database.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="vector.c" />
@@ -143,8 +144,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="database.h" />
+    <ClInclude Include="commands.h" />
+    <ClInclude Include="sock.h" />
     <ClInclude Include="vector.h" />
-    <ClInclude Include="Win32\wsock.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,6 +1,6 @@
 #include <database.h>
 #include <stdio.h>
-#include <Win32/wsock.h>
+#include <sock.h>
 
 #define DAEMON_PORT "1950"
 

@@ -6,9 +6,9 @@
 
 #define newDBQuery "BEGIN TRANSACTION; \
 CREATE TABLE polymorphic_info (key TEXT PRIMARY KEY NOT NULL, value TEXT) WITHOUT ROWID; \
-CREATE TABLE peers (peerID INTEGER PRIMARY KEY, address TEXT NOT NULL, port INTEGER NOT NULL, UNIQUE(address, port)); \
-CREATE TABLE services_peers (peerID INTEGER NOT NULL, service TEXT NOT NULL, serviceID INTEGER NOT NULL, s_version TEXT NOT NULL, provider TEXT NOT NULL, p_version TEXT NOT NULL, UNIQUE(peerID, service), UNIQUE(peerID, serviceID)); \
-CREATE TABLE services_local (service TEXT PRIMARY KEY NOT NULL, serviceID INTEGER NOT NULL, access_token INTEGER NOT NULL, s_version TEXT NOT NULL, provider TEXT NOT NULL, p_version TEXT NOT NULL) WITHOUT ROWID; \
+CREATE TABLE peers (peerID INTEGER PRIMARY KEY, address INTEGER NOT NULL, port INTEGER NOT NULL, UNIQUE(address, port)); \
+CREATE TABLE services_peers (peerID INTEGER NOT NULL, services TEXT NOT NULL); \
+CREATE TABLE services_local (serviceID INTEGER PRIMARY KEY NOT NULL, service TEXT NOT NULL, access_token INTEGER NOT NULL) WITHOUT ROWID; \
 CREATE TABLE users (userID INTEGER PRIMARY KEY, publicKeyVerify TEXT UNIQUE NOT NULL, publicKeyPM TEXT UNIQUE NOT NULL); \
 CREATE TABLE user_peers (userID INTEGER NOT NULL, peerID INTEGER NOT NULL); \
 CREATE TABLE proof_of_works (userID INTEGER NOT NULL, pow TEXT NOT NULL); \
@@ -90,7 +90,7 @@ service_info si_vector_get(service_info_vector *vector, int index) {
 
 bool si_vector_set(service_info_vector *vector, int index, service_info value) {
 	// zero fill the vector up to the desired index
-	while (index >= vector->size) {
+	while (index >= vector->size || index < 0) {
 		return false;
 	}
 
@@ -131,13 +131,6 @@ sqlite3_stmt* getPeersOnAddress_Stmt;
 sqlite3_stmt* getPeerInfoFromID_Stmt;
 sqlite3_stmt* getServicesOnPeer_Stmt;
 sqlite3_stmt* getPeersOnService_Stmt;
-sqlite3_stmt* getPeersOnProvider_Stmt;
-sqlite3_stmt* getPeersOnServiceProvider_Stmt;
-sqlite3_stmt* getPeersOnProviderVersion_Stmt;
-sqlite3_stmt* getPeersOnServiceVersion_Stmt;
-sqlite3_stmt* getPeersOnServiceProviderVersion_Stmt;
-sqlite3_stmt* getPeersOnServiceVersionProvider_Stmt;
-sqlite3_stmt* getPeersOnServiceVersionProviderVersion_Stmt;
 
 sqlite3_stmt* getLocalServices;
 sqlite3_stmt* getLocalServiceInfo;
@@ -157,13 +150,6 @@ void compileStatements(sqlite3* db)
 	sqlite3_prepare_v2(db, "SELECT address,port FROM peers WHERE peerID=?001;", -1, &getPeerInfoFromID_Stmt, NULL);
 	sqlite3_prepare_v2(db, "SELECT service,s_version,provider,p_version FROM services_peers WHERE peerID=?001;", -1, &getServicesOnPeer_Stmt, NULL);
 	sqlite3_prepare_v2(db, "SELECT peerID FROM services_peers WHERE service=?001;", -1, &getPeersOnService_Stmt, NULL);
-	sqlite3_prepare_v2(db, "SELECT peerID FROM services_peers WHERE provider=?001;", -1, &getPeersOnProvider_Stmt, NULL);
-	sqlite3_prepare_v2(db, "SELECT peerID FROM services_peers WHERE service=?001 AND provider=?001;", -1, &getPeersOnServiceProvider_Stmt, NULL);
-	sqlite3_prepare_v2(db, "SELECT peerID FROM services_peers WHERE provider=?001 AND p_version=?002;", -1, &getPeersOnProviderVersion_Stmt, NULL);
-	sqlite3_prepare_v2(db, "SELECT peerID FROM services_peers WHERE service=?001 AND s_version=?002;", -1, &getPeersOnServiceVersion_Stmt, NULL);
-	sqlite3_prepare_v2(db, "SELECT peerID FROM services_peers WHERE service=?001 AND provider=?002 AND p_version=?003;", -1, &getPeersOnServiceProviderVersion_Stmt, NULL);
-	sqlite3_prepare_v2(db, "SELECT peerID FROM services_peers WHERE service=?001 AND s_version=?002 AND provider=?003;", -1, &getPeersOnServiceVersionProvider_Stmt, NULL);
-	sqlite3_prepare_v2(db, "SELECT peerID FROM services_peers WHERE service=?001 AND s_version=?002 AND provider=?003 AND p_version=?004;", -1, &getPeersOnServiceVersionProviderVersion_Stmt, NULL);
 }
 
 //desposes of compiled statements
@@ -174,13 +160,6 @@ void finalizeStatements(sqlite3* db)
 	sqlite3_finalize(getPeerInfoFromID_Stmt);
 	sqlite3_finalize(getServicesOnPeer_Stmt);
 	sqlite3_finalize(getPeersOnService_Stmt);
-	sqlite3_finalize(getPeersOnProvider_Stmt);
-	sqlite3_finalize(getPeersOnServiceProvider_Stmt);
-	sqlite3_finalize(getPeersOnProviderVersion_Stmt);
-	sqlite3_finalize(getPeersOnServiceVersion_Stmt);
-	sqlite3_finalize(getPeersOnServiceProviderVersion_Stmt);
-	sqlite3_finalize(getPeersOnServiceVersionProvider_Stmt);
-	sqlite3_finalize(getPeersOnServiceVersionProviderVersion_Stmt);
 }
 
 //don't simply trust that any database opened is valid. do some consistency checks.
@@ -270,128 +249,6 @@ sqlite3* getCurrentDatabase()
 // --- END Database operations --- //
 
 // --- BEGIN I/O Functions --- ///
-
-int_vector getPeersOnServiceVersionProviderVersion(char* service, char* s_version, char* provider, char* p_version)
-{
-	int_vector ret;
-	int_vector_init(&ret);
-
-	sqlite3_bind_text(getPeersOnServiceVersionProviderVersion_Stmt, 1, service, strlen(service), SQLITE_STATIC);
-	sqlite3_bind_text(getPeersOnServiceVersionProviderVersion_Stmt, 2, s_version, strlen(s_version), SQLITE_STATIC);
-	sqlite3_bind_text(getPeersOnServiceVersionProviderVersion_Stmt, 3, provider, strlen(provider), SQLITE_STATIC);
-	sqlite3_bind_text(getPeersOnServiceVersionProviderVersion_Stmt, 4, p_version, strlen(p_version), SQLITE_STATIC);
-
-	while (sqlite3_step(getPeersOnServiceVersionProviderVersion_Stmt) == SQLITE_ROW)
-	{
-		int_vector_append(&ret, sqlite3_column_int(getPeersOnServiceVersionProviderVersion_Stmt, 0));
-	}
-	int_vector_trim(&ret);
-	sqlite3_reset(getPeersOnServiceVersionProviderVersion_Stmt);
-	return ret;
-}
-
-int_vector getPeersOnServiceVersionProvider(char* service, char* s_version, char* provider)
-{
-	int_vector ret;
-	int_vector_init(&ret);
-
-	sqlite3_bind_text(getPeersOnServiceVersionProvider_Stmt, 1, service, strlen(service), SQLITE_STATIC);
-	sqlite3_bind_text(getPeersOnServiceVersionProvider_Stmt, 2, s_version, strlen(s_version), SQLITE_STATIC);
-	sqlite3_bind_text(getPeersOnServiceVersionProvider_Stmt, 3, provider, strlen(provider), SQLITE_STATIC);
-
-	while (sqlite3_step(getPeersOnServiceVersionProvider_Stmt) == SQLITE_ROW)
-	{
-		int_vector_append(&ret, sqlite3_column_int(getPeersOnServiceVersionProvider_Stmt, 0));
-	}
-	int_vector_trim(&ret);
-	sqlite3_reset(getPeersOnServiceVersionProvider_Stmt);
-	return ret;
-}
-
-int_vector getPeersOnServiceProviderVersion(char* service, char* provider, char* p_version)
-{
-	int_vector ret;
-	int_vector_init(&ret);
-
-	sqlite3_bind_text(getPeersOnServiceProviderVersion_Stmt, 1, service, strlen(service), SQLITE_STATIC);
-	sqlite3_bind_text(getPeersOnServiceProviderVersion_Stmt, 2, provider, strlen(provider), SQLITE_STATIC);
-	sqlite3_bind_text(getPeersOnServiceProviderVersion_Stmt, 3, p_version, strlen(p_version), SQLITE_STATIC);
-
-	while (sqlite3_step(getPeersOnServiceProviderVersion_Stmt) == SQLITE_ROW)
-	{
-		int_vector_append(&ret, sqlite3_column_int(getPeersOnServiceProviderVersion_Stmt, 0));
-	}
-	int_vector_trim(&ret);
-	sqlite3_reset(getPeersOnServiceProviderVersion_Stmt);
-	return ret;
-}
-
-int_vector getPeersOnServiceVersion(char* service, char* s_version)
-{
-	int_vector ret;
-	int_vector_init(&ret);
-
-	sqlite3_bind_text(getPeersOnServiceVersion_Stmt, 1, service, strlen(service), SQLITE_STATIC);
-	sqlite3_bind_text(getPeersOnServiceVersion_Stmt, 2, s_version, strlen(s_version), SQLITE_STATIC);
-
-	while (sqlite3_step(getPeersOnServiceVersion_Stmt) == SQLITE_ROW)
-	{
-		int_vector_append(&ret, sqlite3_column_int(getPeersOnServiceVersion_Stmt, 0));
-	}
-	int_vector_trim(&ret);
-	sqlite3_reset(getPeersOnServiceVersion_Stmt);
-	return ret;
-}
-
-int_vector getPeersOnProviderVersion(char* provider, char* p_version)
-{
-	int_vector ret;
-	int_vector_init(&ret);
-
-	sqlite3_bind_text(getPeersOnProviderVersion_Stmt, 1, provider, strlen(provider), SQLITE_STATIC);
-	sqlite3_bind_text(getPeersOnProviderVersion_Stmt, 2, p_version, strlen(p_version), SQLITE_STATIC);
-
-	while (sqlite3_step(getPeersOnProviderVersion_Stmt) == SQLITE_ROW)
-	{
-		int_vector_append(&ret, sqlite3_column_int(getPeersOnProviderVersion_Stmt, 0));
-	}
-	int_vector_trim(&ret);
-	sqlite3_reset(getPeersOnProviderVersion_Stmt);
-	return ret;
-}
-
-int_vector getPeersOnServiceProvider(char* service, char* provider)
-{
-	int_vector ret;
-	int_vector_init(&ret);
-
-	sqlite3_bind_text(getPeersOnServiceProvider_Stmt, 1, service, strlen(service), SQLITE_STATIC);
-	sqlite3_bind_text(getPeersOnServiceProvider_Stmt, 2, provider, strlen(provider), SQLITE_STATIC);
-
-	while (sqlite3_step(getPeersOnServiceProvider_Stmt) == SQLITE_ROW)
-	{
-		int_vector_append(&ret, sqlite3_column_int(getPeersOnServiceProvider_Stmt, 0));
-	}
-	int_vector_trim(&ret);
-	sqlite3_reset(getPeersOnServiceProvider_Stmt);
-	return ret;
-}
-
-int_vector getPeersOnProvider(char* service)
-{
-	int_vector ret;
-	int_vector_init(&ret);
-
-	sqlite3_bind_text(getPeersOnProvider_Stmt, 1, service, strlen(service), SQLITE_STATIC);
-
-	while (sqlite3_step(getPeersOnProvider_Stmt) == SQLITE_ROW)
-	{
-		int_vector_append(&ret, sqlite3_column_int(getPeersOnProvider_Stmt, 0));
-	}
-	int_vector_trim(&ret);
-	sqlite3_reset(getPeersOnProvider_Stmt);
-	return ret;
-}
 
 int_vector getPeersOnService(char* service)
 {
