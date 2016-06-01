@@ -1,0 +1,607 @@
+Keep track of global peer list with services running and known user-keys
+Attach services through HTTP interface
+Handle public/private key cryptography
+	Signing checksums on behalf of services
+	Verifying checksums on behalf of services
+	Encrypting private messages with public keys
+	Decrypting private messages with private key
+Handle proof-of-work requests and demands
+Transport messages from peer to peer on behalf of services
+Manage connections to other peers
+	Keep track of persistent connections
+	Keep cap of max connections
+	Provide for allocations of persistent connections for services or reject if at cap
+	Manage rate caps
+
+
+Priorities:
+
+1. Performance
+2. Performance
+3. Performance
+4. Portability
+5. Security
+6. Anonymity
+7. Censorship-resistance
+
+Med-prio features:
+1. Standardized anonymous broadcasting and routing algorithms (until these are implemented, individual services must handle this on their own)
+2. Advanced topology
+
+Low-prio:
+1. NAT Traversal
+2. Other transport methods (UDP, HTTP, SMTP, ect...)
+3. UDP hole punching
+
+POLY protocol
+- Message-switched
+- Single, persistent connection oriented in a p2p context, can take any form in a p2s context
+- Unreliable (built on TCP, but the protocol does not send any form of ACKs for whole messages. That must be implemented by a service)
+- Has built-in anonymity features. These are optional because varying p2p applications may not require anonymity, may not be compatible with the available anonymity algorithms and thus need to implement their own algorithm, or may not be able to implement anonymity.
+- Has built-in encryption features. These are optional in the same capacity.
+
+NAT Traversal
+- Test for presence of NAT using not NAT'd peers
+- UPnP port opening
+- Use known not NAT'd peers to perform TCP hole punching
+
+Standardized broadcasting and routing algorithms:
+- Each service can activate Poly's broadcasting interface.
+- The interface will keep a list of very local, low latency peers. These connections will be responsible for propogating any messages through the local neighborhood.
+- It will also keep a stack of "seeding" peers randomly selected from the entire pool used to seed traffic to farther parts of the network.
+- Any broadcast traffic received will be passed on primarily to the neighborhood peers, but it will also be seeded randomly to other peers.
+- The origin point will seed traffic to the randomly selected seed pool. It will not broadcast using the neighborhood list.
+
+
+
+
+Peer variables retrievable by PEER-SETTINGS
+- MAX_MULTICAST
+
+
+on conflict rollback?
+what buffer size?
+
+BEGIN (s==>p p==>p)
+Opening connection.
+
+16-bit realm (0 for service, anything else is peer.)
+(if service)
+16-bit new service (0 for new, anything else is a new connection to an existing service connection
+(if new)
+16-bit service string size
+XX-bit service string
+-RETURNS-
+32-bit service key
+---------
+(end if new)
+(if existing)
+16-bit service ID
+32-bit service key
+(end if service)
+
+
+
+0000: CONNECT (s==>p)
+Directive from service to attempt connect to a specific peer. Returns 0000 is the request if valid. This does not mean that the connection succeded. Upon connection success, a NEW_CONNECTION event will be sent to all listening services.
+
+(all)
+CONNECT structure
+32-bit IPv4 address
+16-bit Layer-4 port
+-RETURNS-
+16-bit result code
+
+
+
+0001: CONNECTv6 (s==>p)
+Like connect, but with IPv6 and NEW_CONNECTIONV6.
+
+(all)
+128-bit IPv6 address
+16-bit Layer-4 port
+-RETURNS-
+16-bit result code
+
+
+
+0002: CONNECT-ENC (s==>p)
+Connect to peer using encryption suite.
+
+
+
+0003: CONNECTv6-ENC (s==>p)
+Connect to IPv6 peer using encryption suite.
+
+
+
+0004: SUBSCRIBE-CONNECTION (s==>p)
+Used by services to subscribe to new connection notifications. Can filter IP by REGEX.
+
+(all)
+32-bit REGEX string length
+XX-bit string length
+
+
+
+0005: NEW-CONNECTION (p==>s)
+Notifies services of new connections. Can filter by SUBSCRIBE-CONNECTION, SUBSCRIBE-SERVICE, and SUBSCRIBE-USER.
+
+(all)
+32-bit IPv4 address
+16-bit Layer-4 port
+32-bit connected peer id
+
+
+
+0006: NEW-CONNECTIONv6 (p==>s)
+Like NEW-CONNECTION, but for IPv6 clients.
+
+(all)
+128-bit IPv6 address
+16-bit Layer-4 port
+32-bit connected peer id
+
+
+
+0007: PING (p==>s p==>p)
+
+(p==>s)
+32-bit connected peer id
+
+(p==>p)
+command only
+
+
+
+0008: MESSAGE (s==>p p==>p p==>s)
+The basic building block of POLY. Sends messages from services from peer to peer. Supports multi-cast.
+
+(s==>p)
+16-bit user id array count
+XX-bit array of 32-bit connected peer ids
+16-bit source service port
+16-bit destination service id
+16-bit destination port
+-RETURNS-
+0000: OK
+0001: INVALID MULTICAST
+0002: NO SUCH PEER
+0003: NO SUCH SERVICE
+DFLT: ABORT
+---------
+(if OK)
+32-bit message length
+XX-bit message
+(end if)
+
+(p==>p)
+16-bit source service id [supplied by peer daemon]
+16-bit source service port
+16-bit destination service id
+16-bit destination port
+-RETURNS-
+0000: OK
+0001: NO SUCH SERVICE
+0002: NO SUCH PORT
+DFLT: ABORT
+---------
+(if OK)
+32-bit message length
+XX-bit message
+(end if)
+
+(p==>s)
+32-bit active connected peer id [supplied by peer daemon]
+16-bit source service id
+16-bit source service port
+16-bit destination service id
+16-bit destination port
+-RETURNS-
+0000: OK
+DFLT: ABORT
+---------
+(if OK)
+32-bit message length
+XX-bit message
+(end if)
+
+
+
+
+0009: MESSAGE-UNSAFE (s==>p p==>p p==>s)
+For small messages or confident peers, it may be pragmatic not to wait for header confirmation before transmitting. Gets confirmation after the entire message is transmitted.
+
+(s==>p)
+16-bit user id array count
+XX-bit array of 32-bit connected peer ids
+16-bit source service port
+16-bit destination service id
+16-bit destination port
+32-bit message length
+XX-bit message
+-RETURNS-
+0000: OK
+0001: INVALID MULTICAST
+0002: NO SUCH PEER
+0003: NO SUCH SERVICE
+DFLT: ABORT
+---------
+
+(p==>p)
+16-bit source service id [supplied by peer daemon]
+16-bit source service port
+16-bit destination service id
+16-bit destination port
+32-bit message length
+XX-bit message
+-RETURNS-
+0000: OK
+0001: NO SUCH SERVICE
+0002: NO SUCH PORT
+DFLT: ABORT
+---------
+
+(p==>s)
+32-bit connected peer id [supplied by peer daemon]
+16-bit source service id
+16-bit source port
+16-bit destination service id
+16-bit destination port
+32-bit message length
+XX-bit message
+
+
+
+MESSAGE-SIGNED
+
+
+MESSAGE-UNSAFE-SIGNED
+
+
+
+000A: MESSAGE-BROADCAST (s==>p p==>p p==>s)
+Broadcast the message to the entire service-network using Poly's built-in anonymous broadcasting algorithm. Service can specify an alternative REGEX service string to control broadcasting scope.
+
+
+
+000B: MESSAGE-BROADCAST-UNSAFE (s==>p p==>p p==>s)
+Same as MESSAGE-BROADCAST, but do not wait for header confirmation.
+
+
+
+000A: MESSAGE-BROADCAST-SIGNED (s==>p p==>p p==>s)
+
+
+
+000B: MESSAGE-BROADCAST-UNSAFE-SIGNED (s==>p p==>p p==>s)
+
+
+
+000C: MESSAGE_ROUTE (s==>p p==>p p==>s)
+Route the message to a specific user using Poly's built-in anonymous routing algorithm. Service can specify an alternative REGEX service string to control broadcasting scope.
+
+
+
+000D: MESSAGE-ROUTE-UNSAFE (s==>p p==>p p==>s)
+Same as MESSAGE-ROUTE, but do not wait for header confirmation. Service can specify an alternative REGEX service string to control broadcasting scope.
+
+
+
+MESSAGE_ROUTE_SIGNED
+
+
+
+MESSAGE_ROUTE_UNSAFE_SIGNED
+
+
+
+MESSAGE_TUNNEL
+Send a message to a peer using Poly's built-in anonymous tunneling system.
+
+
+
+MESSAGE-TUNNEL-UNSAFE
+
+
+
+MESSAGE_TUNNEL_SIGNED
+
+
+
+MESSAGE_TUNNEL_UNSAFE_SIGNED
+
+
+
+000E: PEER-LIST (s==>p p==>p)
+Requests the biggest peer-list the other peer is willing to offer. Services can request this from specific peers. Peers can respond to this request with any number of PEER-INFO commands. Used for bootstrapping. 
+
+(s==>p)
+32-bit connected peer id
+
+(p==>p)
+command only
+
+
+
+000F: PEER-INFO (p==>p p==>s)
+Sends peer information
+
+(all)
+32-bit IPv4 address
+16-bit Layer-4 port
+32-bit Service string length
+XX-bit Service string
+16-bit User count
+XX-bit Array of 256-bit public user keys
+
+
+
+0010: BROADCAST-PEER (p==>p)
+
+(all)
+32-bit IPv4 address
+16-bit Layer-4 port
+32-bit Service string length
+XX-bit Service string
+16-bit User count
+XX-bit Array of 256-bit public user keys
+
+
+
+0011: NEW-PEER (p==>s)
+Used to update subscribed services when a new peer is found. Can be filtered by SUBSCRIBE-SERVICE and SUBSCRIBE-USER.
+
+
+
+0012: FIND-SERVICE (s==>p p==>p)
+Peers will respond to this with any number of peer-info commands.
+
+(s==>p)
+32-bit connected peer ids
+32-bit regex string size
+XX-bit regex search string
+
+(p==>p)
+32-bit regex string size
+XX-bit regex search string
+
+
+
+0013: UPDATE-SERVICES (s==>p p==>p)
+Sends updated services string to a peer.
+
+(all)
+32-bit IPv4 address
+16-bit Layer-4 port
+32-bit service string size
+XX-bit service search string
+
+
+
+0014: REQUEST-SERVICES (s==>p p==>p)
+Request an update for the service string on a specific user
+
+
+
+0015: DEREGISTER-SERVICE (s==>p)
+Allows a service to deregister itself from the service string of its peer
+
+
+
+0016: REPLACE-SERVICE (s==>p)
+Allows a service to update is service string
+
+
+
+0017: SUBSCRIBE-SERVICE (s==>p)
+Used by services to subscribe to service updates. Can be filtered by REGEX string.
+
+
+
+0018: NEW-SERVICE (p==>s)
+Used to update subscribed services of service string updates. Can be filtered by a REGEX string.
+
+
+
+0019: FIND-USER (s==>p p==>p)
+Asks a peer if it knows the location of a publicly broadcasted user
+
+(s==>p)
+32-bit connected peer id
+256-bit public key
+
+
+
+001A: BROADCAST-USER (s==>p p==>p)
+Broadcast the local user, making its origin known to the network. This will only happen if the user key was created as public, or the user themself has modified it to allow public broadcasting.
+
+(p==>p)
+
+
+
+001B: REQUEST-USERS (s==>p p==>p)
+Request a list of publicly broadcasted users from a specific peer
+
+
+
+001C: CREATE-USER (s==>p)
+Service instructs peer to create a new user on its behalf
+
+(all)
+
+
+
+001D: SUBSCRIBE-USER (s==>p)
+Used by services to subscribe to user updates. Can be filtered by REGEX string.
+
+
+
+001E: NEW-USER (p==>s)
+Used to update subscribed services of user updates. Can be filtered by a REGEX string.
+
+
+
+REVOKE-USER
+
+
+
+001F: SERVICE-OFFLINE (p==>p p==>s)
+Sent when the requested service is ran by this peer, but is not currently connected.
+
+
+
+0020: SERVICE-NOT-FOUND (p==>p p==>s)
+Sent when the service requested is not present on the peer.
+
+
+
+0021: NAT-TEST
+Performs a NAT test. If the remote peer agrees, the local peer will disconnect from it. After a short period, the remote peer will attempt to connect to the local peer. If it succeeds, the local peer is not under NAT. After a timeout, the local peer connects to the remote peer again. The remote peer will likely indicate that it failed to connect to the local peer. This will confirm that the local peer has under NAT and has not managed to penetrate it.
+
+
+
+0022: NAT-PUNCH
+Attempts to punch a hole in NAT.
+
+
+SIGN_DATA
+
+
+AUTHENTICATE_DATA
+
+
+
+ENCRYPT_DATA
+
+
+
+DECRYPT_DATA
+
+
+
+POW_PRODUCE
+
+
+
+
+
+
+
+16-bit command id
+
+
+
+
+
+
+
+
+Why not GNUnet, Freenet, ZeroNet or IPFS?
+
+GNUnet, Freenet, ZeroNet, and IPFS have a few flaws, in my opinion. Firstly, they are all far too concerned with one application: file sharing. POLY intends to be an open framework for more flexible, dynamic p2p applications. ZeroNet relies on static BitTorrent content hosting. 
+
+Next, the GNUnet and Freenet systems are too focused on anonymity and censorship-resistance. Make no mistake: these two things are quite important, but these protocols put these concerns front and center, and above all else. For what they seek to achieve, this may be pragmatic. However, POLY is more concerned with building a performant, flexible platform. Standardized anonymization and encryption tools will be available for services to take advantage of, but advanced strategies will require the service itself to implement. The goal of POLY is to make a p2p platform that can compete with the server/client model in terms of performance and scalability. Anonymity and censorship-resistance are secondary concerns.
+
+POLY seeks to enable developers to create services that do not rely on centralization, and thus do not have vulnerabilities to DDoS attacks, and whose dataset is not in the hands of a single individual or institution.
+
+That being said, the public user system allows services to use any measure of centralization if they so desire.
+
+Additionally, POLY is written in C and uses only carefully selected highly portable libraries, so the POLY daemon is easily ported to other platforms.
+
+
+
+
+
+
+
+
+
+
+
+
+DWORD WINAPI workConnections(LPVOID dummy)
+{
+
+	while (!isShutdown) {
+		EnterCriticalSection(&queueCritSection);
+		workersAvailable++;
+		while (!queuedJob)
+		{
+			SleepConditionVariableCS(&queueWorkAvailable, &queueCritSection, INFINITE);
+		}
+		workersAvailable--;
+		CONNECTION_INFO *currentJob = workQueue;
+		queuedJob = 0;
+		LeaveCriticalSection(&queueCritSection);
+
+		handleTerminal(currentJob);
+		closeConnection(currentJob);
+		// determine source
+		// process relevant data
+		// sent requests ect
+		// wait for work
+
+		EnterCriticalSection(&queueCritSection);
+		if (workersAvailable == 1)
+		{
+			LeaveCriticalSection(&queueCritSection);
+			WakeConditionVariable(&queueWorkerAvailable);
+		}
+		else 
+		{
+			LeaveCriticalSection(&queueCritSection);
+		}
+	}
+
+	ExitThread(0);
+}
+
+
+int enqueueJob(CONNECTION_INFO *job)
+{
+	EnterCriticalSection(&queueCritSection);
+	while (workersAvailable == 0)
+	{
+		SleepConditionVariableCS(&queueWorkerAvailable, &queueCritSection, INFINITE);
+	}
+	workQueue = job;
+	queuedJob = 1;
+	LeaveCriticalSection(&queueCritSection);
+	WakeConditionVariable(&queueWorkAvailable);
+	return 0;
+}
+
+
+int handleTerminal(CONNECTION *connection)
+{
+
+	int iSendResult;
+
+	printf("Bytes received: %d\n", connection->byteCount);
+
+	// Echo the buffer back to the sender
+	if (connection->byteCount > 2) {
+		iSendResult = send(connection->socket, connection->buffer.buf, connection->byteCount, 0);
+		if (iSendResult == SOCKET_ERROR) {
+			printf("send failed with error: %d\n", WSAGetLastError());
+			closesocket(connection->socket);
+			WSACleanup();
+		}
+		printf("Bytes sent: %d\n", iSendResult);
+	}
+	else if (connection->byteCount < 3)
+	{
+		printf("Connection closing...\n");
+		printf("CONNECTIONS: %i\n", --numConnections);
+		closeConnection(connection);
+		return 0;
+	}
+	else {
+		printf("recv failed with error: %d\n", WSAGetLastError());
+		WSACleanup();
+	}
+
+	return 1;
+
+}

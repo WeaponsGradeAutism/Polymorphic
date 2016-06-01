@@ -105,6 +105,7 @@ void connection_array_init_capacity(connection_array *vector, int capacity) {
 	vector->strings.data = malloc(sizeof(char*) * vector->strings.capacity);
 	vector->keys.data = malloc(sizeof(int) * vector->strings.capacity);
 	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
+	
 }
 
 void connection_array_double_capacity_if_full(connection_array *vector) {
@@ -268,6 +269,7 @@ void connection_array_trim(connection_array *vector) {
 		vector->connections.capacity = vector->connections.size;
 		vector->strings.capacity = vector->strings.size;
 		vector->keys.capacity = vector->keys.size;
+		
 	}
 
 	if (vector->vacancies.size == 0)
