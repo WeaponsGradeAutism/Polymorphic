@@ -465,7 +465,9 @@ Performs a NAT test. If the remote peer agrees, the local peer will disconnect f
 Attempts to punch a hole in NAT.
 
 
+
 SIGN_DATA
+
 
 
 AUTHENTICATE_DATA
@@ -481,15 +483,6 @@ DECRYPT_DATA
 
 
 POW_PRODUCE
-
-
-
-
-
-
-
-16-bit command id
-
 
 
 
