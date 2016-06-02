@@ -1,13 +1,65 @@
 #include <commands.h>
-#include <winsock2.h>
 
-void processCommand(void* rawSocket, char* command, CONNECTION_INFO info)
+#ifndef MSG_WAITALL
+#define MSG_WAITALL 0x8
+#endif
+
+int initializeConnection(void *socket, CONNECTION_INFO *connection_info)
+{
+	char* buffer[4];
+
+	if (2 != sockRecv(socket, connection_info->protocol, buffer, 2))
+		return POLY_MODE_FAILED;
+
+	if (ntohs((((short)buffer[0]) << 8) | (short)buffer[1]) != 0)
+	{
+		printf("Encryption not yet supported.\n");
+		return POLY_MODE_FAILED;
+	}
+
+	sockSend(socket, connection_info->protocol, "POLY v0.1\r\n", 11, 0);
+
+	if (2 != sockRecv(socket, connection_info->protocol, buffer, 2))
+		return POLY_MODE_FAILED;
+
+	if (ntohs((((short)buffer[0]) << 8) | (short)buffer[1]) == 0)
+	{
+		if (2 != sockRecv(socket, connection_info->protocol, buffer, 2))
+			return POLY_MODE_FAILED;
+
+		if (ntohs((((short)buffer[0]) << 8) | (short)buffer[1]) == 0)
+		{
+			connection_info->mode = POLY_MODE_SERVICE;
+			int serviceStringSize = ntohs((((short)buffer[2]) << 8) | (short)buffer[3]);
+			connection_info->serviceString = malloc(sizeof(char) * serviceStringSize);
+			RAND_bytes(connection_info->serviceKey, 4);
+			if (serviceStringSize != sockRecv(socket, connection_info->protocol, connection_info->serviceString, serviceStringSize))
+				return POLY_MODE_FAILED;
+
+			sockSend(socket, connection_info->protocol, connection_info->serviceKey, 4, 0);
+			return POLY_MODE_SERVICE_NEW;
+		} 
+		else
+		{
+			connection_info->mode = POLY_MODE_SERVICE;
+			return POLY_MODE_SERVICE;
+		}
+	}
+	else
+	{
+		connection_info->mode = POLY_MODE_PEER;
+		return POLY_MODE_PEER;
+	}
+}
+
+void processCommand(void *socket, char *command, CONNECTION_INFO *connection_info)
 {
 
 	short commandLong = ntohs((((short)command[0]) << 8) | command[1]);
 
-	// Command block
+	sockSend(socket, connection_info->protocol, "HELLO!\n", 7, 0);
 
+	// big, dumb switch block
 	switch (commandLong)
 	{
 	case 0x00:

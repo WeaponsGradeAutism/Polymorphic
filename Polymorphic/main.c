@@ -34,6 +34,10 @@ int main(int argc,
 
 	(void)getchar();
 
+
+
+	(void)getchar();
+
 	printf("Stopping server daemon: ");
 	if (closeSocketLib() == 0)
 		printf("OK.\n");

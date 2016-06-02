@@ -2,19 +2,14 @@
 // Network handling for WANGBLOWS
 
 #define HAVE_STRUCT_TIMESPEC
-
+#define OPENSSL_SYS_WINDOWS
 
 #include <ws2tcpip.h>
 #include <stdio.h>
 #include <windows.h>
 #include <commands.h>
 #include <vector.h>
-
-#define MODE_SERVICE 0
-#define MODE_PEER 1
-
-#define PROTO_HTTP 133
-#define PROTO_SMTP 134
+#include <openssl\rand.h>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -30,14 +25,17 @@ typedef struct {
 typedef struct {
 	SOCKET socket; // the actual socket handle itself. the star of the show
 
-	CONNECTION_INFO info;
-
-	int protocol;
-	int byteCount; // IOCP will put bytes buffered by response here. Although the wait function also returns the same thing. Basically used as a dummy for the IOCP create fucntion.
-	int flags; // used by IOCP
+	// connection information
+	CONNECTION_INFO info; // info struct, containing info shared with the commands file. defnition in commands header file.
+	int encryptionType; // kind of encryption key used for this connection
+	char encryptionKey[32]; // the encryption key used to decrypt traffic
 	HANDLE checkAliveTimer; // the timer that periodically checks to see if the connection is still alive
+
+	// IOCP internals
+	int byteCount; // IOCP will put bytes buffered by response here. Although the wait function also returns the same thing. Basically used as a dummy for the IOCP create fucntion.
+	int flags; // used for IOCP
 	WSABUF buffer; // buffer where IOCP data is stored before completion packet is passed
-	WSAOVERLAPPED overlap; // used by IOCP
+	WSAOVERLAPPED overlap; // used for IOCP
 } CONNECTION;
 
 typedef struct {
@@ -48,8 +46,6 @@ typedef struct {
 
 typedef struct {
 	connection_vector connections;
-	string_vector strings;
-	int_vector keys;
 	int_vector vacancies;
 } connection_array;
 
@@ -65,7 +61,8 @@ HANDLE checkAliveTimerQueue;
 const int numWorkerThreads = 30;
 const maxConnections = 500;
 //const checkAliveInterval = 300000;
-const checkAliveInterval = 10000;
+const checkAliveInterval = 300000;
+const newConnectionTimeoutInterval = 5000;
 int numConnections = 0;
 int isShutdown = 0;
 
@@ -76,15 +73,11 @@ void connection_array_init(connection_array *vector) {
 	// initialize size and capacity
 	vector->connections.size = 0;
 	vector->connections.capacity = VECTOR_INITIAL_CAPACITY;
-	vector->strings.size = 0;
-	vector->strings.capacity = VECTOR_INITIAL_CAPACITY;
 	vector->vacancies.size = 0;
 	vector->vacancies.capacity = VECTOR_INITIAL_CAPACITY;
 
 	// allocate memory for vector->data
 	vector->connections.data = malloc(sizeof(CONNECTION*) * vector->connections.capacity);
-	vector->strings.data = malloc(sizeof(char*) * vector->strings.capacity);
-	vector->keys.data = malloc(sizeof(int) * vector->strings.capacity);
 	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
 }
 
@@ -93,17 +86,11 @@ void connection_array_init_capacity(connection_array *vector, int capacity) {
 	// initialize size and capacity
 	vector->connections.size = 0;
 	vector->connections.capacity = capacity;
-	vector->strings.size = 0;
-	vector->strings.capacity = capacity;
-	vector->keys.size = 0;
-	vector->keys.capacity = capacity;
 	vector->vacancies.size = 0;
 	vector->vacancies.capacity = capacity;
 
 	// allocate memory for vector->data
 	vector->connections.data = malloc(sizeof(CONNECTION*) * vector->connections.capacity);
-	vector->strings.data = malloc(sizeof(char*) * vector->strings.capacity);
-	vector->keys.data = malloc(sizeof(int) * vector->strings.capacity);
 	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
 	
 }
@@ -113,19 +100,11 @@ void connection_array_double_capacity_if_full(connection_array *vector) {
 	{
 		vector->connections.capacity = VECTOR_INITIAL_CAPACITY;
 		vector->connections.data = malloc(sizeof(CONNECTION*) * vector->connections.capacity);
-		vector->strings.capacity = VECTOR_INITIAL_CAPACITY;
-		vector->strings.data = malloc(sizeof(char*) * vector->strings.capacity);
-		vector->keys.capacity = VECTOR_INITIAL_CAPACITY;
-		vector->keys.data = malloc(sizeof(int) * vector->strings.capacity);
 	}
 	if (vector->connections.size >= vector->connections.capacity) {
 		// double vector->capacity and resize the allocated memory accordingly
 		vector->connections.capacity *= 2;
 		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION*) * vector->connections.capacity);
-		vector->strings.capacity *= 2;
-		vector->strings.data = realloc(vector->strings.data, sizeof(char*) * vector->strings.capacity);
-		vector->keys.capacity *= 2;
-		vector->keys.data = realloc(vector->strings.data, sizeof(char*) * vector->strings.capacity);
 	}
 }
 
@@ -142,9 +121,9 @@ void conenction_array_double_vacancy_capacity_if_full(connection_array *vector) 
 	}
 }
 
-int connection_array_append(connection_array *vector, CONNECTION *connection, char *string, int key)
+int connection_array_append(connection_array *vector, CONNECTION *connection)
 {
-	if (connection == NULL || string == NULL || key == INT_MIN)
+	if (connection == NULL)
 		return -1;
 
 	// make sure there's room to expand into
@@ -153,8 +132,6 @@ int connection_array_append(connection_array *vector, CONNECTION *connection, ch
 	// append the value and increment vector->size
 	int index = vector->connections.size++;
 	vector->connections.data[index] = connection;
-	vector->strings.data[vector->strings.size++] = string;
-	vector->keys.data[vector->keys.size++] = key;
 	return index;
 }
 
@@ -169,23 +146,21 @@ void connection_array_pop_vacancy(connection_array *vector)
 	vector->vacancies.size--;
 }
 
-int connection_array_push(connection_array *vector, CONNECTION *connection, char *string, int key) {
+int connection_array_push(connection_array *vector, CONNECTION *connection) {
 
-	if (connection == NULL || string == NULL || key == INT_MIN)
+	if (connection == NULL)
 		return -1;
 
 	if (vector->vacancies.size > 0)
 	{
 		int index = connection_array_get_vacancy(vector);
 		vector->connections.data[index] = connection;
-		vector->strings.data[index] = string;
-		vector->keys.data[index] = key;
 		connection_array_pop_vacancy(vector);
 		return index;
 	}
 	else
 	{
-		return connection_array_append(vector, connection, string, key);
+		return connection_array_append(vector, connection);
 	}
 
 }
@@ -198,37 +173,21 @@ int connection_array_delete(connection_array *vector, int index)
 	conenction_array_double_vacancy_capacity_if_full(vector);
 	vector->vacancies.data[vector->vacancies.size++] = index;
 	vector->connections.data[index] = NULL;
-	vector->strings.data[index] = NULL;
-	vector->keys.data[index] = INT_MIN;
 
 	return 0;
 }
 
-CONNECTION* connection_array_get_connection(connection_array *vector, int index) {
+CONNECTION* connection_array_get(connection_array *vector, int index) {
 	if (index >= vector->connections.size || index < 0)
 		return NULL;
 
 	return vector->connections.data[index];
 }
 
-char* connection_array_get_string(connection_array *vector, int index) {
-	if (index >= vector->strings.size || index < 0)
-		return NULL;
-
-	return vector->strings.data[index];
-}
-
-int connection_array_get_key(connection_array *vector, int index) {
-	if (index >= vector->strings.size || index < 0)
-		return INT_MIN;
-
-	return vector->keys.data[index];
-}
-
-int connection_array_set(connection_array *vector, int index, CONNECTION *connection, char *string, int key) {
+int connection_array_set(connection_array *vector, int index, CONNECTION *connection) {
 	// fail if out of bounds
 
-	if (connection == NULL || string == NULL || key == INT_MIN)
+	if (connection == NULL)
 		return -1;
 
 	if (vector->connections.data[index] == NULL)
@@ -240,8 +199,6 @@ int connection_array_set(connection_array *vector, int index, CONNECTION *connec
 
 	// set the value at the desired index
 	vector->connections.data[index] = connection;
-	vector->strings.data[index] = string;
-	vector->keys.data[index] = key;
 	return 0;
 }
 
@@ -251,24 +208,14 @@ void connection_array_trim(connection_array *vector) {
 	{
 		//if there are no elements, free the memory and create a null pointer
 		free(vector->connections.data);
-		free(vector->strings.data);
-		free(vector->keys.data);
 		vector->connections.data = NULL;
-		vector->strings.data = NULL;
-		vector->keys.data = NULL;
 		vector->connections.capacity = 0;
-		vector->strings.capacity = 0;
-		vector->keys.capacity = 0;
 	}
 	else
 	{
 		//size the memory allocation down to its size
 		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION*) * vector->connections.size);
-		vector->strings.data = realloc(vector->strings.data, sizeof(char*) * vector->strings.size);
-		vector->strings.data = realloc(vector->strings.data, sizeof(int) * vector->strings.size);
 		vector->connections.capacity = vector->connections.size;
-		vector->strings.capacity = vector->strings.size;
-		vector->keys.capacity = vector->keys.size;
 		
 	}
 
@@ -290,8 +237,6 @@ void connection_array_trim(connection_array *vector) {
 
 void connection_array_free(connection_array *vector) {
 	free(vector->connections.data);
-	free(vector->strings.data);
-	free(vector->keys.data);
 	free(vector->vacancies.data);
 }
 
@@ -316,12 +261,54 @@ void closeConnection(CONNECTION *connection)
 {
 	shutdown(connection->socket, SD_BOTH);
 	closesocket(connection->socket);
-	if(connection->protocol == IPPROTO_TCP)
+	if (connection->info.protocol == POLY_PROTO_TCP)
 		DeleteTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, INVALID_HANDLE_VALUE);
 	free(connection->buffer.buf);
 	free(connection);
 }
 
+// WARN: We may need to synchronize this with sends on worker threads. Maybe not because send is blocking. I'm not sure.
+// I imagine collisions will be very rare. If not synchronizing this causes a bug, it will be as rare.
+VOID CALLBACK checkAlive(PVOID connection, BOOLEAN fired)
+{
+	printf("CHECK-ALIVE: %i\n", send(((CONNECTION *)connection)->socket, "still there?\n", 13, 0));
+	// Send one ping command
+}
+
+VOID CALLBACK newConnectionTimeout(PVOID connection, BOOLEAN fired)
+{
+	closeConnection((CONNECTION *)connection);
+	// Send one ping command
+}
+
+//TCP send. TODO: Standardize error codes and flags.
+int tcpSend(void* socket, char *buffer, int length, int flags)
+{
+	return send((SOCKET)socket, buffer, length, flags);
+}
+
+int tcpRecv(void* socket, char *buffer, int length, int flags)
+{
+	return recv((SOCKET)socket, buffer, length, flags);
+}
+
+int sockSend(void* socket, int protocol, char *buffer, int length)
+{
+	switch (protocol)
+	{
+	case POLY_PROTO_TCP:
+		tcpSend(socket, buffer, length, 0);
+	}
+}
+
+int sockRecv(void* socket, int protocol, char *buffer, int length)
+{
+	switch (protocol)
+	{
+	case POLY_PROTO_TCP:
+		tcpRecv(socket, buffer, length, MSG_WAITALL);
+	}
+}
 
 // Function that all worker threads will iterate
 DWORD WINAPI workConnections(LPVOID dummy)
@@ -337,27 +324,32 @@ DWORD WINAPI workConnections(LPVOID dummy)
 		if (isShutdown)
 			break;
 
-		printf("STARTING.\n");
+		// need to disable IOCP notifications
+
+		if (connection->info.mode == POLY_MODE_UNINIT)
+		{
+			DeleteTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, NULL);
+			switch (initializeConnection(connection))
+			{
+			case POLY_MODE_FAILED:
+				printf("CONNECTION FAILED.\n");
+				shutdown(connection->socket, SD_BOTH);
+				closesocket(connection->socket);
+				free(connection);
+				CreateTimerQueueTimer(&connection->checkAliveTimer, checkAliveTimerQueue, checkAlive, connection, checkAliveInterval, checkAliveInterval, 0);
+			case POLY_MODE_SERVICE:
+			case POLY_MODE_SERVICE_NEW:
+			case POLY_MODE_PEER:
+			}
+			continue;
+		}
 
 		ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
 
-		// need to disable IOCP notifications
-
-		if(connection->protocol == IPPROTO_TCP)
-			processCommand((void*)connection->socket, connection->buffer.buf, connection->info);
+		processCommand((void*)connection->socket, connection->buffer.buf, &connection->info);
 
 	}
 	ExitThread(0);
-}
-
-
-// WARN: We may need to synchronize this with sends on worker threads. Maybe not because send is blocking. I'm not sure.
-// I imagine collisions will be very rare. If not synchronizing this causes a bug, it will be as rare.
-VOID CALLBACK checkAlive(PVOID connection, BOOLEAN fired)
-{
-	printf("CHECK-ALIVE: %i\n", send(((CONNECTION*)connection)->socket, "still there?\n", 13, 0));
-
-	// Send one ping command
 }
 
 // Function for control thread that accepts new connections
@@ -365,48 +357,39 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 {
 	while (1)
 	{
+
+		// create a new empty connection object and wait for new connections
 		CONNECTION *connection = malloc(sizeof(CONNECTION));
-		connection->socket = accept(acceptSocket, NULL, NULL);
+		connection->socket = accept(acceptSocket, &connection->info.address, sizeof(struct sockaddr));
+
+		// don't proceed if shutting down. accept will unblock but no connecctionj will be present. break instead.
 		if (isShutdown)
 			break;
+
+		// refuse connections if we're already at max.
 		if (numConnections == maxConnections)
 		{
 			send(connection->socket, "fuck off we're full\n", 21, 0);
-			closeConnection(connection);
+			shutdown(connection->socket, SD_BOTH);
+			closesocket(connection->socket);
+			free(connection);
 		}
 		else
 		{
+			//set up the socket and put it on the IOCP listening queue
+			printf("CONNECTIONS: %i\n", ++numConnections);
+			setsockopt(connection->socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)5000, sizeof(int));
+			setsockopt(connection->socket, SOL_SOCKET, SO_SNDTIMEO, (const char*)5000, sizeof(int));
+			connection->info.mode = POLY_MODE_UNINIT;
 			connection->buffer.len = 2;
 			connection->buffer.buf = malloc(sizeof(char) * 2);
-
-			char* buffer[4];
-
-			if (4 != recv(connection->socket, buffer[0], 4, MSG_WAITALL))
-			{
-				printf("CONNECTION FAILED.\n");
-				continue;
-			}
-
-			short realm = ntohs((((short)buffer[0]) << 8) | (short)buffer[1]);
-
-			if (realm == 0x00)
-			{
-				connection->info.mode = MODE_SERVICE;
-				short serviceStringSize = ntohs((((short)buffer[2]) << 8) | (short)buffer[3]);
-				char* serviceString = malloc(sizeof(char) * serviceStringSize);
-				
-			}
-			else
-				connection->info.mode = MODE_PEER;
-
 			connection->overlap.hEvent = NULL;
 			connection->byteCount = 0;
 			connection->flags = MSG_WAITALL;
-			connection->protocol = IPPROTO_TCP;
-			CreateTimerQueueTimer(&connection->checkAliveTimer, checkAliveTimerQueue, checkAlive, connection, checkAliveInterval, checkAliveInterval, 0);
+			connection->info.protocol = POLY_PROTO_TCP;
+			CreateTimerQueueTimer(&connection->checkAliveTimer, checkAliveTimerQueue, newConnectionTimeout, connection, newConnectionTimeoutInterval, newConnectionTimeoutInterval, 0);
 			CreateIoCompletionPort((HANDLE)connection->socket, completionPort, (ULONG_PTR)connection, 0);
 			WSARecv(connection->socket, &connection->buffer, 1, &connection->byteCount, &connection->flags, &connection->overlap, NULL);
-			printf("CONNECTIONS: %i\n", ++numConnections);
 		}
 	}
 	ExitThread(0);
@@ -418,6 +401,8 @@ int startListenSocket(char* port)
 	checkAliveTimerQueue = CreateTimerQueue();
 
 	struct addrinfo *result = NULL, *ptr = NULL, hints;
+
+	RAND_poll();
 
 	connection_array_init(&serviceConnections);
 	connection_array_init(&peerConnecitons);

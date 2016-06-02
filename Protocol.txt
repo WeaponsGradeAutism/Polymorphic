@@ -62,8 +62,17 @@ Peer variables retrievable by PEER-SETTINGS
 on conflict rollback?
 what buffer size?
 
+
+
 BEGIN (s==>p p==>p)
 Opening connection.
+
+16-bit encryption request (0 for no encryption, anything else begins the connection with an encryption negotiation)
+
+(if enc)
+(end if enc)
+
+Greets with message "POLY v" with any number of arbitrary bytes afterward. Terminates with \r\n.
 
 16-bit realm (0 for service, anything else is peer.)
 (if service)
@@ -401,6 +410,11 @@ Used by services to subscribe to service updates. Can be filtered by REGEX strin
 
 0018: NEW-SERVICE (p==>s)
 Used to update subscribed services of service string updates. Can be filtered by a REGEX string.
+
+
+
+IDENTIFY_SERVICE (p==>s)
+Allows a service to get its own service ID.
 
 
 
