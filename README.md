@@ -4,7 +4,7 @@ p2p services that can take many forms
 DEPENDENCIES:
 
 - sqlite3
-- libgcrypt
+- openssl
 
 Win32: Uses Win32 sockets, threads, and IOCP
 
