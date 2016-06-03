@@ -49,8 +49,26 @@ typedef struct {
 	int_vector vacancies;
 } connection_array;
 
-connection_array serviceConnections; // stores service connections by ID
+typedef struct {
+	CONNECTION commandConnection;
+	char* serviceKey[4];
+	char* serviceString;
+} SERVICE;
+
+typedef struct {
+	int size;      // slots used so far
+	int capacity;  // total available slots
+	SERVICE **data;     // array of integers we're storing
+} service_vector;
+
+typedef struct {
+	service_vector connections;
+	int_vector vacancies;
+} service_array;
+
 connection_array peerConnecitons; // stores peer connections by ID
+service_array serviceConnections; // stores service connections by ID
+connection_vector serviceAuxConnections; //stores auxilliary service connections
 
 CONNECTION controlConnection;
 
@@ -92,7 +110,7 @@ void connection_array_init_capacity(connection_array *vector, int capacity) {
 	// allocate memory for vector->data
 	vector->connections.data = malloc(sizeof(CONNECTION*) * vector->connections.capacity);
 	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
-	
+
 }
 
 void connection_array_double_capacity_if_full(connection_array *vector) {
@@ -216,7 +234,7 @@ void connection_array_trim(connection_array *vector) {
 		//size the memory allocation down to its size
 		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION*) * vector->connections.size);
 		vector->connections.capacity = vector->connections.size;
-		
+
 	}
 
 	if (vector->vacancies.size == 0)
@@ -236,6 +254,192 @@ void connection_array_trim(connection_array *vector) {
 }
 
 void connection_array_free(connection_array *vector) {
+	free(vector->connections.data);
+	free(vector->vacancies.data);
+}
+
+//
+//---------------------------------------------------------------------------------------------------------------------------------------------
+
+
+//---------------------------------------------------------------------------------------------------------------------------------------------
+//SERVICE self-filling array
+
+void service_array_init(service_array *vector) {
+	// initialize size and capacity
+	vector->connections.size = 0;
+	vector->connections.capacity = VECTOR_INITIAL_CAPACITY;
+	vector->vacancies.size = 0;
+	vector->vacancies.capacity = VECTOR_INITIAL_CAPACITY;
+
+	// allocate memory for vector->data
+	vector->connections.data = malloc(sizeof(CONNECTION*) * vector->connections.capacity);
+	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
+}
+
+void service_array_init_capacity(service_array *vector, int capacity) {
+	// initialize size and capacity
+	// initialize size and capacity
+	vector->connections.size = 0;
+	vector->connections.capacity = capacity;
+	vector->vacancies.size = 0;
+	vector->vacancies.capacity = capacity;
+
+	// allocate memory for vector->data
+	vector->connections.data = malloc(sizeof(CONNECTION*) * vector->connections.capacity);
+	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
+
+}
+
+void service_array_double_capacity_if_full(service_array *vector) {
+	if (vector->connections.capacity == 0)
+	{
+		vector->connections.capacity = VECTOR_INITIAL_CAPACITY;
+		vector->connections.data = malloc(sizeof(CONNECTION*) * vector->connections.capacity);
+	}
+	if (vector->connections.size >= vector->connections.capacity) {
+		// double vector->capacity and resize the allocated memory accordingly
+		vector->connections.capacity *= 2;
+		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION*) * vector->connections.capacity);
+	}
+}
+
+void service_array_double_vacancy_capacity_if_full(service_array *vector) {
+	if (vector->vacancies.capacity == 0)
+	{
+		vector->vacancies.capacity = VECTOR_INITIAL_CAPACITY;
+		vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
+	}
+	if (vector->vacancies.size >= vector->vacancies.capacity) {
+		// double vector->capacity and resize the allocated memory accordingly
+		vector->vacancies.capacity *= 2;
+		vector->vacancies.data = realloc(vector->vacancies.data, sizeof(int) * vector->vacancies.capacity);
+	}
+}
+
+int service_array_append(service_array *vector, SERVICE *connection)
+{
+	if (connection == NULL)
+		return -1;
+
+	// make sure there's room to expand into
+	connection_array_double_capacity_if_full(vector);
+
+	// append the value and increment vector->size
+	int index = vector->connections.size++;
+	vector->connections.data[index] = connection;
+	return index;
+}
+
+int service_array_get_vacancy(service_array *vector)
+{
+	return vector->vacancies.data[vector->vacancies.size - 1];
+}
+
+void service_array_pop_vacancy(service_array *vector)
+{
+	vector->vacancies.data[vector->vacancies.size - 1] = INT_MIN;
+	vector->vacancies.size--;
+}
+
+int service_array_push(service_array *vector, SERVICE *connection) {
+
+	if (connection == NULL)
+		return -1;
+
+	if (vector->vacancies.size > 0)
+	{
+		int index = connection_array_get_vacancy(vector);
+		vector->connections.data[index] = connection;
+		connection_array_pop_vacancy(vector);
+		return index;
+	}
+	else
+	{
+		return connection_array_append(vector, connection);
+	}
+
+}
+
+int service_array_delete(service_array *vector, int index)
+{
+	if (index >= vector->connections.size || index < 0 || vector->connections.data[index] == NULL)
+		return -1;
+
+	conenction_array_double_vacancy_capacity_if_full(vector);
+	vector->vacancies.data[vector->vacancies.size++] = index;
+	vector->connections.data[index] = NULL;
+
+	return 0;
+}
+
+SERVICE* service_array_get(service_array *vector, int index) {
+	if (index >= vector->connections.size || index < 0)
+		return NULL;
+
+	return vector->connections.data[index];
+}
+
+int service_array_set(service_array *vector, int index, SERVICE *connection) {
+	// fail if out of bounds
+
+	if (connection == NULL)
+		return -1;
+
+	if (vector->connections.data[index] == NULL)
+		return -1;
+
+	if (index >= vector->connections.size || index < 0) {
+		return -1;
+	}
+
+	// set the value at the desired index
+	vector->connections.data[index] = connection;
+	return 0;
+}
+
+int service_array_exists(service_array *vector, int index)
+{
+	if (index > 0 && index < vector->connections.size && vector->connections.data[index] != NULL)
+		return 1;
+	else
+		return 0;
+}
+
+void service_array_trim(service_array *vector) {
+	//trim capacity down to the size of the array
+	if (vector->connections.size == 0)
+	{
+		//if there are no elements, free the memory and create a null pointer
+		free(vector->connections.data);
+		vector->connections.data = NULL;
+		vector->connections.capacity = 0;
+	}
+	else
+	{
+		//size the memory allocation down to its size
+		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION*) * vector->connections.size);
+		vector->connections.capacity = vector->connections.size;
+
+	}
+
+	if (vector->vacancies.size == 0)
+	{
+		//if there are no elements, free the memory and create a null pointer
+		free(vector->vacancies.data);
+		vector->vacancies.data = NULL;
+		vector->vacancies.capacity = 0;
+	}
+	else
+	{
+		//size the memory allocation down to its size
+		vector->vacancies.data = realloc(vector->vacancies.data, sizeof(CONNECTION**) * vector->vacancies.size);
+		vector->vacancies.capacity = vector->vacancies.size;
+	}
+
+}
+
+void service_array_free(service_array *vector) {
 	free(vector->connections.data);
 	free(vector->vacancies.data);
 }
@@ -329,17 +533,16 @@ DWORD WINAPI workConnections(LPVOID dummy)
 		if (connection->info.mode == POLY_MODE_UNINIT)
 		{
 			DeleteTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, NULL);
-			switch (initializeConnection(connection))
+			if (initializeConnection(connection->socket, connection, connection->info) == POLY_MODE_FAILED)
 			{
-			case POLY_MODE_FAILED:
 				printf("CONNECTION FAILED.\n");
 				shutdown(connection->socket, SD_BOTH);
 				closesocket(connection->socket);
 				free(connection);
+			} 
+			else 
+			{
 				CreateTimerQueueTimer(&connection->checkAliveTimer, checkAliveTimerQueue, checkAlive, connection, checkAliveInterval, checkAliveInterval, 0);
-			case POLY_MODE_SERVICE:
-			case POLY_MODE_SERVICE_NEW:
-			case POLY_MODE_PEER:
 			}
 			continue;
 		}
@@ -350,6 +553,19 @@ DWORD WINAPI workConnections(LPVOID dummy)
 
 	}
 	ExitThread(0);
+}
+
+int testServiceExists(int serviceID, char *serviceKey)
+{
+	if (service_array_exists(&serviceConnections, serviceID) && 0 == strncmp(serviceConnections.connections.data[serviceID]->serviceKey, serviceKey, 4))
+		return 1;
+	else
+		return 0;
+}
+
+short addNewService(void* connection)
+{
+	return connection_array_push(&serviceConnections, connection);
 }
 
 // Function for control thread that accepts new connections

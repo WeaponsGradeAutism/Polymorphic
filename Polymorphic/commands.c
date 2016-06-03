@@ -4,7 +4,7 @@
 #define MSG_WAITALL 0x8
 #endif
 
-int initializeConnection(void *socket, CONNECTION_INFO *connection_info)
+int initializeConnection(void *socket, void* connection, CONNECTION_INFO *connection_info)
 {
 	char* buffer[4];
 
@@ -35,9 +35,9 @@ int initializeConnection(void *socket, CONNECTION_INFO *connection_info)
 			RAND_bytes(connection_info->serviceKey, 4);
 			if (serviceStringSize != sockRecv(socket, connection_info->protocol, connection_info->serviceString, serviceStringSize))
 				return POLY_MODE_FAILED;
-
+			sockSend(socket, connection_info->protocol, htons(addNewService(connection)), sizeof(u_short), 0);
 			sockSend(socket, connection_info->protocol, connection_info->serviceKey, 4, 0);
-			return POLY_MODE_SERVICE_NEW;
+			return POLY_MODE_SERVICE;
 		} 
 		else
 		{
@@ -52,6 +52,8 @@ int initializeConnection(void *socket, CONNECTION_INFO *connection_info)
 	}
 }
 
+
+// big, dumb switch block
 void processCommand(void *socket, char *command, CONNECTION_INFO *connection_info)
 {
 
@@ -59,7 +61,6 @@ void processCommand(void *socket, char *command, CONNECTION_INFO *connection_inf
 
 	sockSend(socket, connection_info->protocol, "HELLO!\n", 7, 0);
 
-	// big, dumb switch block
 	switch (commandLong)
 	{
 	case 0x00:

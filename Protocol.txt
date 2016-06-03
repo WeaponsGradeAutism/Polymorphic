@@ -62,7 +62,7 @@ Peer variables retrievable by PEER-SETTINGS
 on conflict rollback?
 what buffer size?
 
-
+1400 byte buffer
 
 BEGIN (s==>p p==>p)
 Opening connection.
@@ -81,6 +81,7 @@ Greets with message "POLY v" with any number of arbitrary bytes afterward. Termi
 16-bit service string size
 XX-bit service string
 -RETURNS-
+16-bit service ID
 32-bit service key
 ---------
 (end if new)
@@ -88,7 +89,6 @@ XX-bit service string
 16-bit service ID
 32-bit service key
 (end if service)
-
 
 
 0000: CONNECT (s==>p)

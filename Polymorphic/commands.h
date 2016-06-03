@@ -3,8 +3,7 @@
 #define POLY_MODE_UNINIT -1
 #define POLY_MODE_FAILED 0
 #define POLY_MODE_SERVICE 1
-#define POLY_MODE_SERVICE_NEW 2
-#define POLY_MODE_PEER 3
+#define POLY_MODE_PEER 2
 
 #define POLY_PROTO_TCP 0
 #define POLY_PROTO_UDP 1
@@ -25,5 +24,7 @@ typedef struct {
 
 int sockRecv(void* socket, int protocol, char *buffer, int length);
 int sockSend(void* socket, int protocol, char *buffer, int length);
+
+short addNewService(void* connection);
 
 void processCommand(void* rawSocket, char* command, CONNECTION_INFO *info);
