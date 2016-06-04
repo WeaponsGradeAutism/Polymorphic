@@ -72,7 +72,7 @@ Opening connection.
 (if enc)
 (end if enc)
 
-Greets with message "POLY v" with any number of arbitrary bytes afterward. Terminates with \r\n.
+Greets with message "<client>, POLY v" with any number of arbitrary bytes afterward. Terminates with \r\n.
 
 16-bit realm (0 for service, anything else is peer.)
 (if service)
@@ -385,6 +385,11 @@ Sends updated services string to a peer.
 16-bit Layer-4 port
 32-bit service string size
 XX-bit service search string
+
+
+
+GET_SERVICES (s==>p)
+Gets the local cache of storage string from a particular client. Retuns 0 length string if none is present.
 
 
 

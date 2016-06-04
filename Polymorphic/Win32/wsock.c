@@ -72,6 +72,8 @@ connection_vector serviceAuxConnections; //stores auxilliary service connections
 
 CONNECTION controlConnection;
 
+char serviceString[65536];
+
 THREAD_INFO listenThread;
 THREAD_INFO acceptThread;
 HANDLE completionPort;
@@ -465,8 +467,11 @@ void closeConnection(CONNECTION *connection)
 {
 	shutdown(connection->socket, SD_BOTH);
 	closesocket(connection->socket);
-	if (connection->info.protocol == POLY_PROTO_TCP)
+	switch (connection->info.protocol)
+	{
+	case POLY_PROTO_TCP:
 		DeleteTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, INVALID_HANDLE_VALUE);
+	}
 	free(connection->buffer.buf);
 	free(connection);
 }
@@ -547,6 +552,11 @@ DWORD WINAPI workConnections(LPVOID dummy)
 			continue;
 		}
 
+		if (bytesTansferred == 0)
+		{
+			closeConnection(connection);
+		}
+
 		ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
 
 		processCommand((void*)connection->socket, connection->buffer.buf, &connection->info);
@@ -565,7 +575,8 @@ int testServiceExists(int serviceID, char *serviceKey)
 
 short addNewService(void* connection)
 {
-	return connection_array_push(&serviceConnections, connection);
+	strcat(serviceString, ((CONNECTION*)connection)->info.serviceString);
+	return connection_array_push(&serviceConnections, (CONNECTION*)connection);
 }
 
 // Function for control thread that accepts new connections
@@ -619,6 +630,8 @@ int startListenSocket(char* port)
 	struct addrinfo *result = NULL, *ptr = NULL, hints;
 
 	RAND_poll();
+
+	strcpy(serviceString, "|");
 
 	connection_array_init(&serviceConnections);
 	connection_array_init(&peerConnecitons);

@@ -6,7 +6,7 @@
 
 #define newDBQuery "BEGIN TRANSACTION; \
 CREATE TABLE polymorphic_info (key TEXT PRIMARY KEY NOT NULL, value TEXT) WITHOUT ROWID; \
-CREATE TABLE peers (peerID INTEGER PRIMARY KEY, address INTEGER NOT NULL, port INTEGER NOT NULL, UNIQUE(address, port)); \
+CREATE TABLE peers (peerID INTEGER PRIMARY KEY, address INTEGER NOT NULL, port INTEGER NOT NULL, protocol INTEGER NOT NULL, UNIQUE(address, port, protocol)); \
 CREATE TABLE services_peers (peerID INTEGER NOT NULL, services TEXT NOT NULL); \
 CREATE TABLE services_local (serviceID INTEGER PRIMARY KEY NOT NULL, service TEXT NOT NULL, access_token INTEGER NOT NULL) WITHOUT ROWID; \
 CREATE TABLE users (userID INTEGER PRIMARY KEY, publicKeyVerify TEXT UNIQUE NOT NULL, publicKeyPM TEXT UNIQUE NOT NULL); \
@@ -27,105 +27,6 @@ COMMIT;"
 
 #define nonPersistentOptions "PRAGMA locking_mode = EXCLUSIVE;"
 
-// --- BEGIN Data Structures --- //
-
-// properly disposes of a service_info struct
-void freeServiceInfo(service_info info)
-{
-	free(info.service);
-	free(info.s_version);
-	free(info.provider);
-	free(info.p_version);
-}
-
-// properly disposes of a peer_info struct
-void freePeerInfo(peer_info collection)
-{
-	free(collection.address);
-}
-
-// -- BEGIN service_info_vector functions -- //
-
-void si_vector_init(service_info_vector *vector) {
-	// initialize size and capacity
-	vector->size = 0;
-	vector->capacity = VECTOR_INITIAL_CAPACITY;
-
-	// allocate memory for vector->data
-	vector->data = (service_info*)malloc(sizeof(service_info) * vector->capacity);
-}
-
-void si_vector_init_capacity(service_info_vector *vector, int capacity) {
-	// initialize size and capacity
-	vector->size = 0;
-	vector->capacity = capacity;
-
-	// allocate memory for vector->data
-	vector->data = (service_info*)malloc(sizeof(service_info) * vector->capacity);
-}
-
-void si_vector_double_capacity_if_full(service_info_vector *vector) {
-	if (vector->size >= vector->capacity) {
-		// double vector->capacity and resize the allocated memory accordingly
-		vector->capacity *= 2;
-		vector->data = (service_info*)realloc(vector->data, sizeof(service_info) * vector->capacity);
-	}
-}
-
-void si_vector_append(service_info_vector *vector, service_info value) {
-	// make sure there's room to expand into
-	si_vector_double_capacity_if_full(vector);
-
-	// append the value and increment vector->size
-	vector->data[vector->size++] = value;
-}
-
-service_info si_vector_get(service_info_vector *vector, int index) {
-	if (index >= vector->size || index < 0) {
-		printf("Index %d out of bounds for vector of size %d\n", index, vector->size);
-		exit(1);
-	}
-	return vector->data[index];
-}
-
-bool si_vector_set(service_info_vector *vector, int index, service_info value) {
-	// zero fill the vector up to the desired index
-	while (index >= vector->size || index < 0) {
-		return false;
-	}
-
-	// set the value at the desired index
-	vector->data[index] = value;
-	return true;
-}
-
-void si_vector_trim(service_info_vector *vector) {
-	if (vector->size == 0)
-	{
-		free(vector->data);
-		vector->data = NULL;
-		vector->capacity = 0;
-	}
-	else
-	{
-		vector->data = (service_info*)realloc(vector->data, sizeof(service_info) * vector->size);
-		vector->capacity = vector->size;
-	}
-}
-
-void si_vector_free(service_info_vector *vector) {
-	for (int row = 0; row < vector->size; row++) {
-		freeServiceInfo(vector->data[row]);
-	}
-	free(vector->data);
-}
-
-// -- END service_info_vector functions -- //
-
-// --- END Data Structures --- //
-
-// --- BEGIN Database operations --- //
-
 sqlite3_stmt* getPeerFromSocket_Stmt;
 sqlite3_stmt* getPeersOnAddress_Stmt;
 sqlite3_stmt* getPeerInfoFromID_Stmt;
@@ -141,6 +42,8 @@ sqlite3_stmt* getPOWsFromUser;
 
 bool dbInit = false;
 sqlite3* database;
+
+// --- BEGIN Database operations --- //
 
 //compiles statements
 void compileStatements(sqlite3* db)
@@ -327,32 +230,15 @@ int getPeerFromSocket(char* address, int port)
 	}
 }
 
-service_info_vector getServicesOnPeer(int peerID)
+char* getServicesOnPeer(int peerID)
 {
-	service_info_vector ret;
-	si_vector_init(&ret);
-
-	int length;
-
 	sqlite3_bind_int(getServicesOnPeer_Stmt, 1, peerID);
 
-	for (int row = 0; sqlite3_step(getServicesOnPeer_Stmt) == SQLITE_ROW; row++)
-	{
-		service_info draft;
-		sqlite3_step(getServicesOnPeer_Stmt);
-		length = sqlite3_column_bytes(getServicesOnPeer_Stmt, 0);
-		draft.service = (char*)malloc(sizeof(char*) * (length + 1));
-		strcpy(draft.service, (const char*)sqlite3_column_text(getServicesOnPeer_Stmt, 0));
-		length = sqlite3_column_bytes(getServicesOnPeer_Stmt, 1);
-		draft.s_version = (char*)malloc(sizeof(char*) * (length + 1));
-		strcpy(draft.s_version, (const char*)sqlite3_column_text(getServicesOnPeer_Stmt, 1));
-		length = sqlite3_column_bytes(getServicesOnPeer_Stmt, 2);
-		draft.provider = (char*)malloc(sizeof(char*) * (length + 1));
-		strcpy(draft.provider,  (const char*)sqlite3_column_text(getServicesOnPeer_Stmt, 2));
-		length = sqlite3_column_bytes(getServicesOnPeer_Stmt, 3);
-		draft.p_version = (char*)malloc(sizeof(char*) * (length + 1));
-		strcpy(draft.p_version, (const char*)sqlite3_column_text(getServicesOnPeer_Stmt, 3));
-	}
+	char* ret;
+	
+	const unsigned char* tempRet = sqlite3_column_text(database, 0);
+	ret = malloc(strlen(tempRet) + 1);
+	strcpy(ret, tempRet);
 
 	sqlite3_reset(getServicesOnPeer_Stmt);
 	return ret;
