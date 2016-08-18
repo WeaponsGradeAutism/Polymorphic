@@ -14,6 +14,8 @@
 #define POLY_COMMAND_MESSAGE 0x0002
 #define POLY_COMMAND_MESSAGE_ERROR 0x0003
 
+#define POLY_COMMAND_CONNECT_ERROR_BUSY 0x0001 // connection already exists, but the connection attempt timed out
+
 #define POLY_SERVICE_ARRAY_GETALL_OVERFLOW -1
 
-void processCommand(void *socket, uint8_t *command, CONNECTION_INFO *connection_info);
+void processCommand(void *socket, uint8_t *command, POLYM_CONNECTION_INFO *connection_info);

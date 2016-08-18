@@ -12,7 +12,7 @@ void sendPeerDisconnected(void* connection, uint16_t peerID)
 	sockSendAsync(connection, buffer, 4);
 }
 
-int sendDisconnect(void *connection, CONNECTION_INFO *connection_info, uint16_t disconnectCode)
+int sendDisconnect(void *connection, POLYM_CONNECTION_INFO *connection_info, uint16_t disconnectCode)
 {
 	uint8_t buffer[4]; // create a buffer for operations
 
@@ -27,7 +27,7 @@ int sendDisconnect(void *connection, CONNECTION_INFO *connection_info, uint16_t 
 	else
 	{
 		cleanupConnection(connection_info); // if unsuccessful, cleanup the connection and return NOT_GRACEFUL error
-		return POLY_ERROR_NOT_GRACEFUL;
+		return POLYM_ERROR_NOT_GRACEFUL;
 	}
 }
 
@@ -44,14 +44,14 @@ int sendConnectErrorToService(void* connection, uint32_t ipv4AddressLong, uint16
 	sockSendAsync(connection, buffer, 12);
 }
 
-void recvConnect(void *connection, CONNECTION_INFO *connection_info)
+void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 {
 
 	uint8_t buffer[8];
 
 	switch (connection_info->mode)
 	{
-	case POLY_MODE_SERVICE:
+	case POLYM_MODE_SERVICE:
 		service:
 		if (0 != trySockRecv(connection, buffer, 8))
 			return;
@@ -64,12 +64,12 @@ void recvConnect(void *connection, CONNECTION_INFO *connection_info)
 		if (0 != connectResult)
 			sendConnectErrorToService(connection, ipv4AddressLong, l4Port, protocol, connectResult);
 		break;
-	case POLY_MODE_SERVICE_AUX:
+	case POLYM_MODE_SERVICE_AUX:
 		// same as service
 		goto service;
-	case POLY_MODE_PEER:
+	case POLYM_MODE_PEER:
 		// peers should not be telling us to connect to other peers. disconnect.
-		sendDisconnect(connection, connection_info, POLY_ERROR_INVALID_COMMAND);
+		sendDisconnect(connection, connection_info, POLYM_ERROR_INVALID_COMMAND);
 		return;
 	}
 
@@ -80,7 +80,7 @@ int sendMessageToPeerID(uint16_t peerID, uint8_t *message, uint32_t length)
 	void *connection = getConnectionFromPeerID(peerID);
 
 	if (connection == NULL)
-		return POLY_ERROR_PEER_DOES_NOT_EXIST;
+		return POLYM_ERROR_PEER_DOES_NOT_EXIST;
 
 	sockSendAsync(connection, message, length);
 	return 0;
@@ -102,7 +102,7 @@ int sendMessageToServiceID(uint16_t serviceID, uint16_t portID, uint8_t* message
 	void *connection = getConnectionFromServiceID(serviceID, portID);
 
 	if (connection == NULL)
-		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
+		return POLYM_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	sockSendAsync(connection, message, length);
 	return 0;
@@ -144,13 +144,13 @@ void sendPeerMessage(void* connection, uint8_t* peerToPeerMessage)
 		sendMessageErrorToService(connection, destPeerID, sendResult);
 }
 
-void recvMessage(void *connection, CONNECTION_INFO *connection_info)
+void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 {
 
 	switch (connection_info->mode)
 	{
 
-	case POLY_MODE_SERVICE:
+	case POLYM_MODE_SERVICE:
 	{
 
 		uint8_t peerToPeerMessage[65536 + 10]; // the max possible size of a peer->peer message command
@@ -164,7 +164,7 @@ void recvMessage(void *connection, CONNECTION_INFO *connection_info)
 		break;
 	}
 
-	case POLY_MODE_SERVICE_AUX:
+	case POLYM_MODE_SERVICE_AUX:
 	{
 		uint8_t peerToPeerMessage[65536 + 10]; // the max possible size of a peer->peer message command
 
@@ -174,7 +174,7 @@ void recvMessage(void *connection, CONNECTION_INFO *connection_info)
 		sendPeerMessage(connection, peerToPeerMessage);
 	}
 
-	case POLY_MODE_PEER:
+	case POLYM_MODE_PEER:
 	{
 
 		uint8_t peerToServiceMessage[65536 + 8]; // the max possible size of a peer->service message command
@@ -209,7 +209,7 @@ void recvMessage(void *connection, CONNECTION_INFO *connection_info)
 }
 
 // big, dumb switch block
-void processCommand(void *connection, uint8_t *command, CONNECTION_INFO *connection_info)
+void processCommand(void *connection, uint8_t *command, POLYM_CONNECTION_INFO *connection_info)
 {
 
 	uint16_t commandLong = getShortFromBuffer(command);

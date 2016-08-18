@@ -7,7 +7,6 @@
 
 #include <definitions.h>
 #include <stdio.h>
-#include <windows.h>
 #include <sock.h>
 
 #include <Win32/wsock_datatypes.h>
@@ -56,13 +55,13 @@ int closeConnection(CONNECTION *connection)
 	closesocket(connection->socket);
 	switch (connection->info.protocol)
 	{
-	case POLY_PROTO_TCP:
+	case POLYM_PROTO_TCP:
 		DeleteTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, INVALID_HANDLE_VALUE);
 		break;
 	}
 	switch (connection->info.mode)
 	{
-	case POLY_MODE_SERVICE:
+	case POLYM_MODE_SERVICE:
 		free(connection->info.mode_info.service.serviceString);
 		break;
 	}
@@ -107,7 +106,7 @@ int sockSend(void* connection, uint8_t *buffer, uint32_t length)
 	CONNECTION* connPointer = ((CONNECTION*)connection);
 	switch (connPointer->info.protocol)
 	{
-	case POLY_PROTO_TCP:
+	case POLYM_PROTO_TCP:
 		tcpSend(connPointer->socket, buffer, length, 0);
 		break;
 	}
@@ -123,7 +122,7 @@ int sockSendAsync(void* connection, uint8_t *buffer, uint32_t length)
 
 	switch (connPointer->info.protocol)
 	{
-	case POLY_PROTO_TCP:
+	case POLYM_PROTO_TCP:
 		tcpSendAsync(connPointer->socket, wsabuffer, 0);
 		break;
 	}
@@ -135,7 +134,7 @@ int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
 
 	switch (connPointer->info.protocol)
 	{
-	case POLY_PROTO_TCP:
+	case POLYM_PROTO_TCP:
 		tcpRecv(connPointer->socket, buffer, length, MSG_WAITALL);
 		break;
 	}
@@ -193,10 +192,10 @@ DWORD WINAPI workConnections(LPVOID dummy)
 	ExitThread(0);
 }
 
-CONNECTION_INFO* getServiceConnectionInfo(int index)
+POLYM_CONNECTION_INFO* getServiceConnectionInfo(int index)
 {
 	EnterCriticalSection(serviceConnectionsCriticalSection);
-	CONNECTION_INFO *ret = &service_connection_array_get_connection(&serviceConnections, index)->info;
+	POLYM_CONNECTION_INFO *ret = &service_connection_array_get_connection(&serviceConnections, index)->info;
 	LeaveCriticalSection(serviceConnectionsCriticalSection);
 	return ret;
 }
@@ -228,7 +227,7 @@ int32_t removeService(uint16_t serviceID)
 	CONNECTION* connection = service_connection_array_get_connection(&serviceConnections, serviceID);
 
 	if (connection = NULL)
-		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
+		return POLYM_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	int result = service_connection_array_delete(&serviceConnections, serviceID);
 	LeaveCriticalSection(serviceConnectionsCriticalSection);
@@ -255,7 +254,7 @@ int32_t removeServiceAux(uint16_t serviceID, uint16_t serviceAuxID)
 	CONNECTION* connection = service_connection_array_get_aux(&serviceConnections, serviceID, serviceAuxID);
 
 	if (connection = NULL)
-		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
+		return POLYM_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	int result = service_connection_array_delete_aux(&serviceConnections, serviceID, serviceAuxID);
 	LeaveCriticalSection(serviceConnectionsCriticalSection);
@@ -280,7 +279,7 @@ int32_t removePeer(uint16_t peerID)
 	CONNECTION* connection = connection_array_get(&peerConnections, peerID);
 
 	if (connection = NULL)
-		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
+		return POLYM_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	int result = connection_array_delete(&peerConnections, peerID);
 	LeaveCriticalSection(peerConnectionsCriticalSection);
@@ -356,12 +355,12 @@ void initializeNewTCPConnection(CONNECTION *connection)
 	connection->overlap.hEvent = NULL;
 	connection->byteCount = 0;
 	connection->flags = MSG_WAITALL;
-	connection->info.mode = POLY_MODE_UNINIT;
-	connection->info.protocol = POLY_PROTO_TCP;
+	connection->info.mode = POLYM_MODE_UNINIT;
+	connection->info.protocol = POLYM_PROTO_TCP;
 	connection->info.addrtype = IPPROTO_IPV4;
 }
 
-void* openNewTCPConnection(char *ipAddress, char *l4Port, CONNECTION_INFO **out_connectionInfo)
+void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **out_connectionInfo)
 {
 	struct addrinfo *result = NULL,
 		*ptr = NULL,
@@ -419,18 +418,18 @@ void* openNewTCPConnection(char *ipAddress, char *l4Port, CONNECTION_INFO **out_
 	}
 
 	initializeNewTCPConnection(connection);
-	connection->info.mode = POLY_MODE_PEER;
+	connection->info.mode = POLYM_MODE_PEER;
 
 	out_connectionInfo = &connection->info;
 	return connection;
 }
 
-void* openNewConnection(char *ipAddress, char *l4Port, uint8_t protocol)
+void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **out_connectionInfo, uint8_t protocol)
 {
 	switch (protocol)
 	{
-	case POLY_PROTO_TCP:
-		return openNewTCPConnection(ipAddress, l4Port);
+	case POLYM_PROTO_TCP:
+		return openNewTCPConnection(ipAddress, l4Port, out_connectionInfo);
 	}
 	return NULL;
 }
@@ -443,7 +442,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 
 		// create a new empty connection object and wait for new connections
 		CONNECTION *connection = malloc(sizeof(CONNECTION));
-		connection->socket = accept(acceptSocket, &connection->info.address.ipv4, (int)sizeof(struct sockaddr_in));
+		connection->socket = accept(acceptSocket, &connection->address.ipv4, (int)sizeof(struct sockaddr_in));
 
 		// don't proceed if shutting down. accept will unblock but no connecctionj will be present. break instead.
 		if (isShutdown)
@@ -453,7 +452,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 		if (numConnections == maxConnections)
 		{
 			// send error code for full
-			send(connection->socket, htons((uint16_t)POLY_ERROR_MAX_CONNECTIONS), 2, 0);
+			send(connection->socket, htons((uint16_t)POLYM_ERROR_MAX_CONNECTIONS), 2, 0);
 			shutdown(connection->socket, SD_BOTH);
 			closesocket(connection->socket);
 			free(connection);
@@ -467,7 +466,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 			CreateIoCompletionPort((HANDLE)connection->socket, completionPort, (ULONG_PTR)connection, 0);
 
 			// OPTI: initializing connections may need to become multithreaded.
-			if (POLY_MODE_FAILED == initializeIncomingConnection(connection->socket, connection, connection->info))
+			if (POLYM_MODE_FAILED == initializeIncomingConnection(connection->socket, connection, connection->info))
 			{
 				printf("CONNECTION FAILED.\n");
 				closeConnection(connection);

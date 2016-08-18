@@ -10,7 +10,7 @@ int sockRecv(void* connection, uint8_t *buffer, uint32_t length);
 int sockSend(void* connection, uint8_t *buffer, uint32_t length);
 int sockSendAsync(void* connection, uint8_t *buffer, uint32_t length);
 
-void* openNewTCPConnection(char *ipAddress, char *l4Port, CONNECTION_INFO **out_connectionInfo);
+void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **out_connectionInfo);
 
 int32_t addNewService(void* connection);
 int32_t removeService(uint16_t serviceID);

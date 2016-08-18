@@ -1,12 +1,7 @@
 #pragma once
 
-#ifndef WSOCKH
-#include <winsock2.h>
-#define WSOCKH
-#endif // !WSOCKH
 
 #include <ws2tcpip.h>
-#include <ws2ipdef.h>
 #include <vector.h>
 #include <stdint.h>
 #include <info_structure.h>
@@ -21,7 +16,7 @@ typedef struct {
 	SOCKET socket; // the actual socket handle itself. the star of the show
 
 				   // connection information
-	CONNECTION_INFO info; // info struct, containing info shared with the commands.c file. defnition in commands header file.
+	POLYM_CONNECTION_INFO info; // info struct, containing info shared with the commands.c file. defnition in commands header file.
 	uint8_t encryptionType; // kind of encryption key used for this connection
 	uint8_t encryptionKey[32]; // the encryption key used to decrypt traffic
 	HANDLE checkAliveTimer; // the timer that periodically checks to see if the connection is still alive
