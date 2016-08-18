@@ -62,44 +62,62 @@ Peer variables retrievable by PEER-SETTINGS
 on conflict rollback?
 what buffer size?
 
-1400 byte buffer
+1400 byte buffer default
 
 BEGIN (s==>p p==>p)
 Opening connection.
 
-16-bit encryption request (0 for no encryption, anything else begins the connection with an encryption negotiation)
+Greets with message "POLY v" with any number of arbitrary bytes afterward. Terminates with \r\n.
 
+2-byte encryption request (0 for no encryption, anything else begins the connection with an encryption negotiation)
 (if enc)
 (end if enc)
-
-Greets with message "<client>, POLY v" with any number of arbitrary bytes afterward. Terminates with \r\n.
-
-16-bit realm (0 for service, anything else is peer.)
+2-byte realm (0 for service, anything else is peer.)
 (if service)
-16-bit new service (0 for new, anything else is a new connection to an existing service connection
+2-byte service ID (0 for new, anything else is a new connection to an existing service)
 (if new)
-16-bit service string size
-XX-bit service string
+2-byte service string size (non-zero)
+X-byte service string
 -RETURNS-
-16-bit service ID
-32-bit service key
+2-byte result code (0 if pass, anything else if fail)
+(if pass)
+2-byte service ID
+4-byte service key
+(end if pass)
 ---------
 (end if new)
 (if existing)
-16-bit service ID
-32-bit service key
+4-byte service key
+-RETURNS-
+2-byte result code (0 if pass, anything else if fail)
+(if pass)
+2-byte aux service port
+(end if pass)
+---------
+(end if existing)
 (end if service)
+(if peer)
+-RETURNS- 
+2-byte result code (0 if pass, anything else if fail)
+(end if peer)
 
 
 0000: CONNECT (s==>p)
-Directive from service to attempt connect to a specific peer. Returns 0000 is the request if valid. This does not mean that the connection succeded. Upon connection success, a NEW_CONNECTION event will be sent to all listening services.
+Upon connection success, a NEW_CONNECTION event will be sent to all listening services.
 
-(all)
-CONNECT structure
-32-bit IPv4 address
-16-bit Layer-4 port
--RETURNS-
-16-bit result code
+(s==>p)
+4-byte IPv4 address
+2-byte protocol 
+2-byte Layer-4 port
+
+
+
+0000: CONNECT_ERROR  (p==>s)
+0: 4-byte IPv4 address
+4: 2-byte Layer-4 port
+6: 2-byte protocol 
+8: 2-byte error code
+10: END
 
 
 
@@ -114,13 +132,7 @@ Like connect, but with IPv6 and NEW_CONNECTIONV6.
 
 
 
-0002: CONNECT-ENC (s==>p)
-Connect to peer using encryption suite.
 
-
-
-0003: CONNECTv6-ENC (s==>p)
-Connect to IPv6 peer using encryption suite.
 
 
 
@@ -133,23 +145,53 @@ XX-bit string length
 
 
 
-0005: NEW-CONNECTION (p==>s)
+0005: NEW_CONNECTION (p==>s)
 Notifies services of new connections. Can filter by SUBSCRIBE-CONNECTION, SUBSCRIBE-SERVICE, and SUBSCRIBE-USER.
 
 (all)
 32-bit IPv4 address
 16-bit Layer-4 port
-32-bit connected peer id
+16-bit connected peer id
 
 
 
-0006: NEW-CONNECTIONv6 (p==>s)
+0006: NEW_CONNECTIONv6 (p==>s)
 Like NEW-CONNECTION, but for IPv6 clients.
 
 (all)
 128-bit IPv6 address
 16-bit Layer-4 port
-32-bit connected peer id
+16-bit connected peer id
+
+
+
+DISONNECT (s==>p p==>p p==>s)
+Used to notify remote peer, local peer, or service that disconnection is taking place.
+
+(s==>p)
+0: 2-byte peer id
+2: END
+
+(all)
+16-bit disconnect code
+
+
+
+0005: PEER_DISCONNECTED (p==>s)
+Notifies services of peers disconnecting.
+
+(p==>s)
+0: 2-byte connected peer id
+2: END
+
+
+
+0006: PEER_DISCONNECTEDv6 (p==>s)
+Like PEER_DISCONNECTED, but for IPv6 clients.
+
+(p==>s)
+0: 2-byte connected peer id
+2: END
 
 
 
@@ -167,158 +209,45 @@ command only
 The basic building block of POLY. Sends messages from services from peer to peer. Supports multi-cast.
 
 (s==>p)
-16-bit user id array count
-XX-bit array of 32-bit connected peer ids
-16-bit source service port
-16-bit destination service id
-16-bit destination port
--RETURNS-
-0000: OK
-0001: INVALID MULTICAST
-0002: NO SUCH PEER
-0003: NO SUCH SERVICE
-DFLT: ABORT
----------
-(if OK)
-32-bit message length
-XX-bit message
-(end if)
+0: 2-byte destination peer id
+2: 2-byte destination service id
+4: 2-byte destination port
+6: 2-byte message length
+8: X-byte message
+8 - 65,544: END
 
 (p==>p)
-16-bit source service id [supplied by peer daemon]
-16-bit source service port
-16-bit destination service id
-16-bit destination port
--RETURNS-
-0000: OK
-0001: NO SUCH SERVICE
-0002: NO SUCH PORT
-DFLT: ABORT
----------
-(if OK)
-32-bit message length
-XX-bit message
-(end if)
+0: 2-byte destination service id
+2: 2-byte destination port
+4: 2-byte source service id
+6: 2-byte source service port
+8: 2-byte message length
+10: X-byte message
+10 - 65,546: END
 
 (p==>s)
-32-bit active connected peer id [supplied by peer daemon]
-16-bit source service id
-16-bit source service port
-16-bit destination service id
-16-bit destination port
--RETURNS-
-0000: OK
-DFLT: ABORT
----------
-(if OK)
-32-bit message length
-XX-bit message
-(end if)
+0: 2-byte source peer id
+2: 2-byte source service id
+4: 2-byte source service port
+6: 2-byte message length
+8: X-byte message
+8 - 65,544: END
 
 
 
 
-0009: MESSAGE-UNSAFE (s==>p p==>p p==>s)
-For small messages or confident peers, it may be pragmatic not to wait for header confirmation before transmitting. Gets confirmation after the entire message is transmitted.
-
-(s==>p)
-16-bit user id array count
-XX-bit array of 32-bit connected peer ids
-16-bit source service port
-16-bit destination service id
-16-bit destination port
-32-bit message length
-XX-bit message
--RETURNS-
-0000: OK
-0001: INVALID MULTICAST
-0002: NO SUCH PEER
-0003: NO SUCH SERVICE
-DFLT: ABORT
----------
+0009: MESSAGE_ERROR (p==>p p==>s)
 
 (p==>p)
-16-bit source service id [supplied by peer daemon]
-16-bit source service port
-16-bit destination service id
-16-bit destination port
-32-bit message length
-XX-bit message
--RETURNS-
-0000: OK
-0001: NO SUCH SERVICE
-0002: NO SUCH PORT
-DFLT: ABORT
----------
+0: 2-byte service ID
+2: 2-byte service port
+4: 2-byte error code
+8: END
 
 (p==>s)
-32-bit connected peer id [supplied by peer daemon]
-16-bit source service id
-16-bit source port
-16-bit destination service id
-16-bit destination port
-32-bit message length
-XX-bit message
-
-
-
-MESSAGE-SIGNED
-
-
-MESSAGE-UNSAFE-SIGNED
-
-
-
-000A: MESSAGE-BROADCAST (s==>p p==>p p==>s)
-Broadcast the message to the entire service-network using Poly's built-in anonymous broadcasting algorithm. Service can specify an alternative REGEX service string to control broadcasting scope.
-
-
-
-000B: MESSAGE-BROADCAST-UNSAFE (s==>p p==>p p==>s)
-Same as MESSAGE-BROADCAST, but do not wait for header confirmation.
-
-
-
-000A: MESSAGE-BROADCAST-SIGNED (s==>p p==>p p==>s)
-
-
-
-000B: MESSAGE-BROADCAST-UNSAFE-SIGNED (s==>p p==>p p==>s)
-
-
-
-000C: MESSAGE_ROUTE (s==>p p==>p p==>s)
-Route the message to a specific user using Poly's built-in anonymous routing algorithm. Service can specify an alternative REGEX service string to control broadcasting scope.
-
-
-
-000D: MESSAGE-ROUTE-UNSAFE (s==>p p==>p p==>s)
-Same as MESSAGE-ROUTE, but do not wait for header confirmation. Service can specify an alternative REGEX service string to control broadcasting scope.
-
-
-
-MESSAGE_ROUTE_SIGNED
-
-
-
-MESSAGE_ROUTE_UNSAFE_SIGNED
-
-
-
-MESSAGE_TUNNEL
-Send a message to a peer using Poly's built-in anonymous tunneling system.
-
-
-
-MESSAGE-TUNNEL-UNSAFE
-
-
-
-MESSAGE_TUNNEL_SIGNED
-
-
-
-MESSAGE_TUNNEL_UNSAFE_SIGNED
+0: 2-byte peer ID
+4: 2-byte error code
+6: END
 
 
 
@@ -475,16 +404,6 @@ Sent when the service requested is not present on the peer.
 
 
 
-0021: NAT-TEST
-Performs a NAT test. If the remote peer agrees, the local peer will disconnect from it. After a short period, the remote peer will attempt to connect to the local peer. If it succeeds, the local peer is not under NAT. After a timeout, the local peer connects to the remote peer again. The remote peer will likely indicate that it failed to connect to the local peer. This will confirm that the local peer has under NAT and has not managed to penetrate it.
-
-
-
-0022: NAT-PUNCH
-Attempts to punch a hole in NAT.
-
-
-
 SIGN_DATA
 
 
@@ -617,3 +536,12 @@ int handleTerminal(CONNECTION *connection)
 	return 1;
 
 }
+
+
+
+- Messages do need to be tagged with an ID and recieving party does need to send an ack of that ID.
+- The only flow limit the client will enforce is universal in-flow and out-flow limits.
+- A delay in an ability to send a message command will delay the processing of all further commands, even ones that don't involve transmission to another peer.
+- A service can choose to be informed whenever a message has been successfully sent.
+- If there is no active flow cooldown, any packet that the client receives will be sent immediately. The flow cooldown begins, and any further packets received by the client will be placed into the respective service's sending buffer, and no further commands will be processed until the queue is emptied.
+- Sending buffers will be enqueued in a FIFO queue that will be sent and emptied at a rate determined by the throttle.

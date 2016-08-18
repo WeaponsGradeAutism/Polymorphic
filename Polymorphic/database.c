@@ -3,23 +3,14 @@
 #include <sqlite3.h>
 #include <database.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define newDBQuery "BEGIN TRANSACTION; \
 CREATE TABLE polymorphic_info (key TEXT PRIMARY KEY NOT NULL, value TEXT) WITHOUT ROWID; \
-CREATE TABLE peers (peerID INTEGER PRIMARY KEY, address INTEGER NOT NULL, port INTEGER NOT NULL, protocol INTEGER NOT NULL, UNIQUE(address, port, protocol)); \
-CREATE TABLE services_peers (peerID INTEGER NOT NULL, services TEXT NOT NULL); \
-CREATE TABLE services_local (serviceID INTEGER PRIMARY KEY NOT NULL, service TEXT NOT NULL, access_token INTEGER NOT NULL) WITHOUT ROWID; \
-CREATE TABLE users (userID INTEGER PRIMARY KEY, publicKeyVerify TEXT UNIQUE NOT NULL, publicKeyPM TEXT UNIQUE NOT NULL); \
-CREATE TABLE user_peers (userID INTEGER NOT NULL, peerID INTEGER NOT NULL); \
-CREATE TABLE proof_of_works (userID INTEGER NOT NULL, pow TEXT NOT NULL); \
+CREATE TABLE peers (peerID INTEGER PRIMARY KEY NOT NULL, address INTEGER NOT NULL, port INTEGER NOT NULL, protocol INTEGER NOT NULL, services TEXT NOT NULL, timestamp_updated INTEGER NOT NULL, UNIQUE(address, port, protocol) ON CONFLICT REPLACE); \
+CREATE TABLE users (userID INTEGER PRIMARY KEY NOT NULL, publicKeyVerify TEXT UNIQUE NOT NULL, publicKeyPM TEXT UNIQUE NOT NULL) WITHOUT ROWID; \
 \
 INSERT INTO polymorphic_info (key, value) VALUES ('polymorphic_version', 0.1); \
-\
-CREATE INDEX services_peers_s_version ON services_peers (s_version); \
-CREATE INDEX services_peers_provider ON services_peers (provider); \
-CREATE INDEX services_peers_p_version ON services_peers (p_version); \
-\
-CREATE INDEX pows_users ON proof_of_works (userID); \
 \
 COMMIT;"
 
@@ -33,12 +24,11 @@ sqlite3_stmt* getPeerInfoFromID_Stmt;
 sqlite3_stmt* getServicesOnPeer_Stmt;
 sqlite3_stmt* getPeersOnService_Stmt;
 
-sqlite3_stmt* getLocalServices;
-sqlite3_stmt* getLocalServiceInfo;
+sqlite3_stmt* addOrUpdatePeer_Stmt;
+
 sqlite3_stmt* getUserInfoFromID;
 sqlite3_stmt* getUsersOnPeer;
 sqlite3_stmt* getPeersWithUser;
-sqlite3_stmt* getPOWsFromUser;
 
 bool dbInit = false;
 sqlite3* database;
@@ -48,11 +38,13 @@ sqlite3* database;
 //compiles statements
 void compileStatements(sqlite3* db)
 {
-	sqlite3_prepare_v2(db, "SELECT peerID FROM peers WHERE address=?001 AND port=?002;", -1, &getPeerFromSocket_Stmt, NULL);
+	sqlite3_prepare_v2(db, "SELECT peerID FROM peers WHERE address=?001 AND port=?002 AND protocol=?003;", -1, &getPeerFromSocket_Stmt, NULL);
 	sqlite3_prepare_v2(db, "SELECT peerID FROM peers WHERE address=?001;", -1, &getPeersOnAddress_Stmt, NULL);
-	sqlite3_prepare_v2(db, "SELECT address,port FROM peers WHERE peerID=?001;", -1, &getPeerInfoFromID_Stmt, NULL);
-	sqlite3_prepare_v2(db, "SELECT service,s_version,provider,p_version FROM services_peers WHERE peerID=?001;", -1, &getServicesOnPeer_Stmt, NULL);
+	sqlite3_prepare_v2(db, "SELECT address,port,protocol FROM peers WHERE peerID=?001;", -1, &getPeerInfoFromID_Stmt, NULL);
+	sqlite3_prepare_v2(db, "SELECT services FROM peers WHERE peerID=?001;", -1, &getServicesOnPeer_Stmt, NULL);
 	sqlite3_prepare_v2(db, "SELECT peerID FROM services_peers WHERE service=?001;", -1, &getPeersOnService_Stmt, NULL);
+
+	sqlite3_prepare_v2(db, "INSERT INTO peers (address, port, protocol, services, timestamp_updated) VALUES (?001, ?002, ?003, ?004, strftime('%s', 'now'));", -1, &addOrUpdatePeer_Stmt, NULL);
 }
 
 //desposes of compiled statements
@@ -63,6 +55,8 @@ void finalizeStatements(sqlite3* db)
 	sqlite3_finalize(getPeerInfoFromID_Stmt);
 	sqlite3_finalize(getServicesOnPeer_Stmt);
 	sqlite3_finalize(getPeersOnService_Stmt);
+
+	sqlite3_finalize(addOrUpdatePeer_Stmt);
 }
 
 //don't simply trust that any database opened is valid. do some consistency checks.
@@ -217,7 +211,7 @@ int getPeerFromSocket(char* address, int port)
 	sqlite3_bind_text(getPeerFromSocket_Stmt, 1, address, strlen(address), SQLITE_STATIC);
 	sqlite3_bind_int(getPeerFromSocket_Stmt, 2, port);
 
-	if (sqlite3_step(getPeerFromSocket_Stmt) == SQLITE_ROW)
+	if (SQLITE_ROW == sqlite3_step(getPeerFromSocket_Stmt))
 	{
 		int ret = sqlite3_column_int(getPeerFromSocket_Stmt, 0);
 		sqlite3_reset(getPeerFromSocket_Stmt);
@@ -230,18 +224,34 @@ int getPeerFromSocket(char* address, int port)
 	}
 }
 
-char* getServicesOnPeer(int peerID)
+int getServicesOnPeer(int peerID, const char *stringOut, int32_t bufferSize)
 {
 	sqlite3_bind_int(getServicesOnPeer_Stmt, 1, peerID);
-
-	char* ret;
+	if (SQLITE_ROW == sqlite3_step(getServicesOnPeer_Stmt))
+		return 1;
 	
-	const unsigned char* tempRet = sqlite3_column_text(database, 0);
-	ret = malloc(strlen(tempRet) + 1);
-	strcpy(ret, tempRet);
+	const char* value = (const char*)sqlite3_column_text(getServicesOnPeer_Stmt, 0);
+	strncpy(stringOut, value, bufferSize);
 
 	sqlite3_reset(getServicesOnPeer_Stmt);
-	return ret;
+	return 0;
+}
+
+int addOrUpdatePeer(uint32_t address, uint16_t port, uint8_t protocol, char *services, uint32_t servicesLength)
+{
+	sqlite3_bind_int(addOrUpdatePeer_Stmt, 1, address);
+	sqlite3_bind_int(addOrUpdatePeer_Stmt, 2, port);
+	sqlite3_bind_int(addOrUpdatePeer_Stmt, 3, protocol);
+	sqlite3_bind_text(addOrUpdatePeer_Stmt, 4, services, servicesLength, SQLITE_STATIC);
+
+	if (SQLITE_DONE != sqlite3_step(addOrUpdatePeer_Stmt))
+	{
+		sqlite3_reset(addOrUpdatePeer_Stmt);
+		return 1;
+	}
+
+	sqlite3_reset(addOrUpdatePeer_Stmt);
+	return 0;
 }
 
 // --- END I/O Functions --- //

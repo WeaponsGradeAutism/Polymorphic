@@ -30,6 +30,12 @@
     <ClCompile Include="commands.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Win32\wsock_datatypes.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="connections.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="database.h">
@@ -42,6 +48,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="sock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32\wsock_datatypes.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="connections.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="definitions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="info_structure.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,30 +1,19 @@
-#include <winsock2.h>
+#pragma once
 
-#define POLY_MODE_UNINIT -1
-#define POLY_MODE_FAILED 0
-#define POLY_MODE_SERVICE 1
-#define POLY_MODE_PEER 2
+#include <stdint.h>
+#include <info_structure.h>
 
-#define POLY_PROTO_TCP 0
-#define POLY_PROTO_UDP 1
-#define POLY_PROTO_HTTP 2
-#define POLY_PROTO_HTTPS 3
-#define POLY_PROTO_SMTP 4
+#ifndef MSG_WAITALL
+#define MSG_WAITALL 0x8
+#endif
 
-typedef struct {
-	int protocol;
-	int mode; // is this socket connected to a local service or a peer? POLY_MODE_SERVICE or POLY_MODE_PEER
-	int infoID; // the serviceID or peerID this socket represents
-	int addrtype; //IPv4 or V
-	struct sockaddr address; // address string
-	int port; // layer-4 port on the connection
-	char serviceKey[4]; // key given to service on initialization
-	char* serviceString; // the string that defines this service
-} CONNECTION_INFO;
+#define POLY_COMMAND_CONNECT 0x0000
+#define POLY_COMMAND_CONNECT_ERROR 0x0001
+#define POLY_COMMAND_DISCONNECT 0x0001
+#define POLY_COMMAND_PEER_DISCONNECTED 0x0001
+#define POLY_COMMAND_MESSAGE 0x0002
+#define POLY_COMMAND_MESSAGE_ERROR 0x0003
 
-int sockRecv(void* socket, int protocol, char *buffer, int length);
-int sockSend(void* socket, int protocol, char *buffer, int length);
+#define POLY_SERVICE_ARRAY_GETALL_OVERFLOW -1
 
-short addNewService(void* connection);
-
-void processCommand(void* rawSocket, char* command, CONNECTION_INFO *info);
+void processCommand(void *socket, uint8_t *command, CONNECTION_INFO *connection_info);

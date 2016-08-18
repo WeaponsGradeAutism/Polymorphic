@@ -4,6 +4,10 @@
 
 #define VECTOR_INITIAL_CAPACITY 50
 
+#define VECTOR_INVALID_ARGUMENT -1
+#define ARRAY_NOT_EMPTY -2
+#define ARRAY_IS_FULL -3
+
 //Generic vector
 
 typedef struct {
@@ -20,22 +24,6 @@ bool vector_set(vector *vector, int index, void *value);
 void vector_trim(vector *vector);
 void vector_free(vector *vector);
 
-//Int vector
-
-typedef struct {
-	int size;      // slots used so far
-	int capacity;  // total available slots
-	int *data;     // array of integers we're storing
-} int_vector;
-
-void int_vector_init(int_vector *vector);
-void int_vector_init_capacity(int_vector *vector, int capacity);
-void int_vector_append(int_vector *vector, int value);
-int int_vector_get(int_vector *vector, int index);
-bool int_vector_set(int_vector *vector, int index, int value);
-void int_vector_trim(int_vector *vector);
-void int_vector_free(int_vector *vector);
-
 //string vector
 
 typedef struct {
@@ -51,6 +39,22 @@ int string_vector_get(string_vector *vector, int index);
 bool string_vector_set(string_vector *vector, int index, char* value);
 void string_vector_trim(string_vector *vector);
 void string_vector_free(string_vector *vector);
+
+//Int vector
+
+typedef struct {
+	int size;      // slots used so far
+	int capacity;  // total available slots
+	int *data;     // array of integers we're storing
+} int_vector;
+
+void int_vector_init(int_vector *vector);
+void int_vector_init_capacity(int_vector *vector, int capacity);
+void int_vector_append(int_vector *vector, int value);
+int int_vector_get(int_vector *vector, int index);
+bool int_vector_set(int_vector *vector, int index, int value);
+void int_vector_trim(int_vector *vector);
+void int_vector_free(int_vector *vector);
 
 // Self-filling int array
 

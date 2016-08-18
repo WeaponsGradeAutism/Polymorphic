@@ -4,8 +4,6 @@
 #include <stdlib.h>
 #include <vector.h>
 
-
-
 //generic_vector
 
 void vector_init(vector *vector) {
