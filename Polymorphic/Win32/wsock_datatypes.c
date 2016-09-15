@@ -124,12 +124,34 @@ int connection_array_delete(connection_array *vector, uint32_t index)
 	return 0;
 }
 
-CONNECTION* connection_array_get(connection_array *vector, uint32_t index) 
+CONNECTION* connection_array_get(connection_array *vector, uint32_t index)
 {
 	if (index >= vector->connections.size || index < 0)
 		return NULL;
 
 	return vector->connections.data[index];
+}
+
+int connection_array_get_all(connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray)
+{
+	uint32_t currentIndex = 0;
+	for (int x = 0; x < vector->connections.size && currentIndex < maxCount; x++)
+	{
+		CONNECTION *connection = connection_array_get(vector, x);
+		if (connection != NULL)
+		{
+			OUT_connectionArray[currentIndex] = connection;
+			currentIndex++;
+			if (currentIndex == maxCount)
+			{
+				if (x == (vector->connections.size - 1))
+					return currentIndex;
+				else
+					return POLYM_SERVICE_ARRAY_GETALL_OVERFLOW;
+			}
+		}
+	}
+	return currentIndex;
 }
 
 int connection_array_set(connection_array *vector, uint32_t index, CONNECTION *connection) 
@@ -368,7 +390,7 @@ int service_connection_array_get_all_connections(service_connection_array *vecto
 				if (x == (vector->connections.size - 1))
 					return currentIndex;
 				else
-					return POLY_SERVICE_ARRAY_GETALL_OVERFLOW;
+					return POLYM_SERVICE_ARRAY_GETALL_OVERFLOW;
 			}
 		}
 	}
@@ -410,7 +432,7 @@ int service_connection_array_service_string_exists(service_connection_array *vec
 	for (int x = 0; x < vector->connections.size; x++)
 	{
 		CONNECTION *connection = service_connection_array_get_connection(vector, x);
-		if (connection != NULL && 0 == strcmp(string, connection->info.service.serviceString))
+		if (connection != NULL && 0 == strcmp(string, connection->info.mode_info.service.serviceString))
 			return 1;
 	}
 	return 0;

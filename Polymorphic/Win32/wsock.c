@@ -3,11 +3,10 @@
 
 #define POLY_PLATFORM_WANGBLOWS
 
-#define POLYMORPHIC_ASYNC_SEND 100
+#define MAX_CONNECTIONS 500
 
 #include <definitions.h>
 #include <stdio.h>
-#include <sock.h>
 
 #include <Win32/wsock_datatypes.h>
 
@@ -23,29 +22,93 @@ service_connection_array serviceConnections; // stores main service connections 
 HANDLE serviceConnectionsCriticalSection; // sync object
 char serviceString[65536]; // stores the services string for this peer
 HANDLE serviceStringCriticalSection; // sync object
+int numWorkerThreads = 0; // number of worker threads currently active
+HANDLE numWorkerThreadsCriticalSection; // sync object
 
 //non-threaded variables
 THREAD_INFO acceptThread; // thread that accepts incoming connections
 HANDLE completionPort; // stores all connections that are currently waiting on events
 HANDLE checkAliveTimerQueue; // timer queue where all the check alive timers are stored
-const uint32_t numWorkerThreads = 30; // number of worker threads to spawn to work connection events
-const uint32_t maxConnections = 500; // maximum number of connections this peer will allow
+const uint32_t maxWorkerThreads = 30; // number of worker threads to spawn to work connection events
+const uint32_t maxConnections = MAX_CONNECTIONS; // maximum number of connections this peer will allow
 const uint32_t checkAliveInterval = 300000; // the rate at which this peer will check to see if idle connections are still reachable
 const uint32_t newConnectionTimeoutInterval = 5000; // the amount of time this peer will wait on a response to a greeting before dropping the connection
 uint32_t numConnections = 0; // the number of current connections
 uint8_t isShutdown = 0; // shutdown state of the daemon
 
+POLYM_OVERLAPPED shutdownOverlap; //overlap for the shutdown function
 
 int initSocketLib() 
 {
 	// Initialize Winsock
 	return WSAStartup(MAKEWORD(2, 2), &wsaData);
+	shutdownOverlap.eventType = POLYM_EVENT_SHUTDOWN;
 }
 
 int closeSocketLib()
 {
 	isShutdown = 1;
 	return WSACleanup();
+}
+
+void insertShortIntoBuffer(uint8_t *buffer, uint16_t unconvertedShort)
+{
+	uint16_t convertedShort = htons(unconvertedShort);
+	buffer[0] = convertedShort >> 8;
+	buffer[1] = convertedShort & 0x00FF;
+}
+
+void insertShortIntoBufferNC(uint8_t *buffer, uint16_t unconvertedShort)
+{
+	buffer[0] = unconvertedShort >> 8;
+	buffer[1] = unconvertedShort & 0x00FF;
+}
+
+void insertLongIntoBuffer(uint8_t *buffer, uint16_t unconvertedLong)
+{
+	uint16_t convertedLong = htons(unconvertedLong);
+	buffer[0] = convertedLong >> 24;
+	buffer[1] = (convertedLong >> 16) & 0x000000FF;
+	buffer[2] = (convertedLong >> 8) & 0x000000FF;
+	buffer[3] = convertedLong & 0x000000FF;
+}
+
+void insertLongIntoBufferNC(uint8_t *buffer, uint16_t unconvertedLong)
+{
+	buffer[0] = unconvertedLong >> 24;
+	buffer[1] = (unconvertedLong >> 16) & 0x000000FF;
+	buffer[2] = (unconvertedLong >> 8) & 0x000000FF;
+	buffer[3] = unconvertedLong & 0x000000FF;
+}
+
+uint16_t getShortFromBuffer(uint8_t* buffer)
+{
+	return ntohs((((uint16_t)buffer[0]) << 8) | buffer[1]);
+}
+
+uint16_t getShortFromBufferNC(uint8_t* buffer)
+{
+	return (((uint16_t)buffer[0]) << 8) | buffer[1];
+}
+
+uint32_t getLongFromBuffer(uint8_t* buffer)
+{
+	return ntohs((((uint32_t)buffer[0]) << 24) | buffer[1] << 16 | buffer[2] << 8 | buffer[3]);
+}
+
+uint32_t getLongFromBufferNC(uint8_t* buffer)
+{
+	return (((uint32_t)buffer[0]) << 24) | buffer[1] << 16 | buffer[2] << 8 | buffer[3];
+}
+
+void initializeOverlap(POLYM_OVERLAPPED* overlap)
+{
+	overlap->hEvent = 0;
+	overlap->Internal = 0;
+	overlap->InternalHigh = 0;
+	overlap->Offset = 0;
+	overlap->OffsetHigh = 0;
+	overlap->Pointer = 0;
 }
 
 // attempt to close a connection gracefully.
@@ -71,6 +134,11 @@ int closeConnection(CONNECTION *connection)
 	return 0; // this will return 0 upon graceful shutdown, error code if disconnect command fails.
 }
 
+int closeUnitializedConnection(void *connection)
+{
+	return closeConnection((CONNECTION*)connection);
+}
+
 VOID CALLBACK checkAlive(PVOID connection, BOOLEAN fired)
 {
 	printf("CHECK-ALIVE: %i\n", send(((CONNECTION *)connection)->socket, "still there?\n", 13, 0));
@@ -88,13 +156,6 @@ int tcpSend(SOCKET socket, uint8_t *buffer, uint32_t length, int32_t flags)
 	return send(socket, buffer, length, flags);
 }
 
-int tcpSendAsync(SOCKET socket, WSABUF *wsabuffer, int32_t flags)
-{
-	OVERLAPPED *lapObject = malloc(sizeof(OVERLAPPED));
-	lapObject->Offset = POLYMORPHIC_ASYNC_SEND;
-	lapObject->OffsetHigh = wsabuffer;
-	return WSASend((SOCKET)socket, wsabuffer, 1, NULL, 0, lapObject, NULL);
-}
 
 int tcpRecv(SOCKET socket, uint8_t *buffer, uint32_t length, int32_t flags)
 {
@@ -110,6 +171,15 @@ int sockSend(void* connection, uint8_t *buffer, uint32_t length)
 		tcpSend(connPointer->socket, buffer, length, 0);
 		break;
 	}
+}
+
+int tcpSendAsync(SOCKET socket, WSABUF *wsabuffer, int32_t flags)
+{
+	POLYM_OVERLAPPED *overlap = malloc(sizeof(POLYM_OVERLAPPED));
+	overlap->eventType = POLYM_EVENT_ASYNC_SEND;
+	overlap->eventInfo = wsabuffer;
+	initializeOverlap(overlap);
+	return WSASend((SOCKET)socket, wsabuffer, 1, NULL, 0, overlap, NULL);
 }
 
 int sockSendAsync(void* connection, uint8_t *buffer, uint32_t length)
@@ -140,56 +210,122 @@ int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
 	}
 }
 
-void intIPtoStringIP(uint32_t ipv4AddressLong, char *outStringIP)
+char* intIPtoStringIP(uint32_t ipv4AddressLong, char *OUT_StringIP, int bufferSize)
 {
 	struct in_addr addressOjbect;
 	addressOjbect.S_un.S_addr = ipv4AddressLong;
-	strcpy(outStringIP, inet_ntoa(addressOjbect));
+	return inet_ntop(AF_INET, &addressOjbect, OUT_StringIP, bufferSize);
 }
 
-// function that all worker threads will iterate
-DWORD WINAPI workConnections(LPVOID dummy)
+void lockConnectionMutex(CONNECTION *connection)
+{
+	EnterCriticalSection(&connection->connectionMutex);
+}
+
+void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
+{
+	switch (info->mode)
+	{
+	case POLYM_MODE_SERVICE:
+		lockConnectionMutex(service_connection_array_get_connection(&serviceConnections, info->mode_info.service.serviceID));
+		return;
+	case POLYM_MODE_SERVICE_AUX:
+		lockConnectionMutex(service_connection_array_get_aux(&serviceConnections, info->mode_info.serviceAux.serviceID, info->mode_info.serviceAux.servicePort));
+		return;
+	case POLYM_MODE_PEER:
+		lockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
+		return;
+	default:
+		return;
+	}
+}
+
+void unlockConnectionMutex(CONNECTION *connection)
+{
+	LeaveCriticalSection(&connection->connectionMutex);
+}
+
+
+void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
+{
+	switch (info->mode)
+	{
+	case POLYM_MODE_SERVICE:
+		unlockConnectionMutex(service_connection_array_get_connection(&serviceConnections, info->mode_info.service.serviceID));
+		return;
+	case POLYM_MODE_SERVICE_AUX:
+		unlockConnectionMutex(service_connection_array_get_aux(&serviceConnections, info->mode_info.serviceAux.serviceID, info->mode_info.serviceAux.servicePort));
+		return;
+	case POLYM_MODE_PEER:
+		unlockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
+		return;
+	default:
+		return;
+	}
+}
+
+// function that all event listener threads will execute
+DWORD WINAPI eventListener(LPVOID dummy)
 {
 
 	while (1) {
 		// return values for GetQueuedCompletionStatus
 		uint32_t bytesTansferred;
 		CONNECTION *connection;
-		OVERLAPPED *lap;
+		POLYM_OVERLAPPED *overlap;
 
-		// wait for one of the connections to recieve a command ID or close
-		GetQueuedCompletionStatus(completionPort, &bytesTansferred, (PULONG_PTR)&connection, &lap, INFINITE);
+		// wait to recieve an event
+		GetQueuedCompletionStatus(completionPort, &bytesTansferred, (PULONG_PTR)&connection, &overlap, INFINITE);
 
-		// if this completion packet is the result of an async send, free the associated memory and continue
-		if (lap->Offset == POLYMORPHIC_ASYNC_SEND)
+		switch (overlap->eventType)
 		{
-			free(((WSABUF*)lap->OffsetHigh)->buf); // free the buffer
-			free((WSABUF*)lap->OffsetHigh); // free the WSABUF object
-			free(lap); // free the OVERLAPPED object
+
+		case POLYM_EVENT_LISTEN:
+			// reset the check alive timer because of this activity
+			ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
+
+			// if nothing was recieved, the connection was closed. dispose of it.
+			if (bytesTansferred == 0)
+				closeConnection(connection);
+
+			// process the command
+			lockConnectionMutex(connection);
+			processCommand((void*)connection, connection->buffer.buf, &connection->info);
+			unlockConnectionMutex(connection);
+
+			//rearm the connection on the listen list
+			WSARecv(connection->socket, &connection->buffer, 1, &connection->byteCount, &connection->flags, &connection->overlap, NULL);
+
+		case POLYM_EVENT_ASYNC_SEND:
+			// reset the check alive timer because of this activity
+			ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
+
+			free(((WSABUF*)overlap->eventInfo)->buf); // free the buffer
+			free((WSABUF*)overlap->eventInfo); // free the WSABUF object
+			free(overlap); // free the OVERLAPPED object
 			continue;
+
+		case POLYM_EVENT_SHUTDOWN:
+			EnterCriticalSection(numWorkerThreadsCriticalSection);
+			numWorkerThreads--;
+			LeaveCriticalSection(numWorkerThreadsCriticalSection);
+			ExitThread(0);
+			return 0;
+
+		default:
+			break; // TODO: critical error log and exit
 		}
-
-		// if we're in the process of shutting down, end the loop
-		if (isShutdown)
-			break;
-
-		// if nothing was sent, the connection was closed. dispose of it.
-		if (bytesTansferred == 0)
-		{
-			closeConnection(connection);
-		}
-
-		// reset the check alive timer because of this activity
-		ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
-
-		// process the command
-		processCommand((void*)connection, connection->buffer.buf, &connection->info);
-
-		//rearm the connection on the listen list
-		WSARecv(connection->socket, &connection->buffer, 1, &connection->byteCount, &connection->flags, &connection->overlap, NULL);
-
 	}
-	ExitThread(0);
+}
+
+int closeWorkerThreads(int count)
+{
+	int countReturn = 0;
+	for (int x = 0; x < count; x++)
+	{
+		countReturn += PostQueuedCompletionStatus(completionPort, 0, NULL, &shutdownOverlap);
+	}
+	return countReturn;
 }
 
 POLYM_CONNECTION_INFO* getServiceConnectionInfo(int index)
@@ -323,12 +459,66 @@ void* getConnectionFromServiceID(uint16_t serviceID, uint16_t portID)
 	}
 }
 
+POLYM_CONNECTION_INFO* getInfoFromConnection(void *connection)
+{
+	return &((CONNECTION*)connection)->info;
+}
+
 int getCurrentServiceConnections(void** OUT_connectionArray, uint32_t maxCount)
 {
 	EnterCriticalSection(serviceConnectionsCriticalSection);
 	int ret = service_connection_array_get_all_connections(&serviceConnections, maxCount, OUT_connectionArray);
 	LeaveCriticalSection(serviceConnectionsCriticalSection);
 	return ret;
+}
+
+int getCurrentPeerConnections(void** OUT_connectionArray, uint32_t maxCount)
+{
+	EnterCriticalSection(peerConnectionsCriticalSection);
+	int ret = connection_array_get_all(&peerConnections, maxCount, OUT_connectionArray);
+	LeaveCriticalSection(peerConnectionsCriticalSection);
+	return ret;
+}
+
+int getPeerConnectionAddressString(int peerID, int stringBufferSize, char* OUT_stringBuffer)
+{
+	EnterCriticalSection(peerConnectionsCriticalSection);
+	CONNECTION* connection = connection_array_get(&peerConnections, peerID);
+	LeaveCriticalSection(peerConnectionsCriticalSection);
+	switch (connection->info.addrtype)
+	{
+	case IPPROTO_IPV4:
+		inet_ntop(AF_INET, &connection->address.ipv4.sin_addr, OUT_stringBuffer, stringBufferSize);
+	case IPPROTO_IPV6:
+		return -1; // ipv6 unimplemented
+	default:
+		return -1; // TODO: this should never happen, but throw an error just in case
+	}
+}
+
+int compareAddresses(struct in_addr address1, struct in_addr address2)
+{
+	return address1.S_un.S_addr - address2.S_un.S_addr;
+}
+
+int addressConnected(char *stringAddress, uint16_t port)
+{
+	struct in_addr address1;
+	inet_pton(AF_INET, stringAddress, &address1);
+	CONNECTION* connections[MAX_CONNECTIONS];
+	int numConnections = getCurrentPeerConnections(&connections, MAX_CONNECTIONS);
+	int returnValue = 0;
+
+	for (int x = 0; x < numConnections; x++)
+	{
+		if (0 != compareAddresses(address1, connections[x]->address.ipv4.sin_addr))
+		{
+			returnValue = 1;
+			if (port == connections[x]->address.ipv4.sin_port)
+				return 2;
+		}
+	}
+	return returnValue;
 }
 
 int rebuildServiceString()
@@ -350,6 +540,9 @@ void initializeNewTCPConnection(CONNECTION *connection)
 	const DWORD sock_timeout = 5 * 1000;
 	setsockopt(connection->socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&sock_timeout, sizeof(sock_timeout));
 	setsockopt(connection->socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&sock_timeout, sizeof(sock_timeout));
+	connection->overlap.eventInfo = NULL;
+	connection->overlap.eventType = 0;
+	initializeOverlap(&connection->overlap);
 	connection->buffer.len = 2;
 	connection->buffer.buf = malloc(sizeof(uint8_t) * 2);
 	connection->overlap.hEvent = NULL;
@@ -358,6 +551,7 @@ void initializeNewTCPConnection(CONNECTION *connection)
 	connection->info.mode = POLYM_MODE_UNINIT;
 	connection->info.protocol = POLYM_PROTO_TCP;
 	connection->info.addrtype = IPPROTO_IPV4;
+	InitializeCriticalSection(&connection->connectionMutex);
 }
 
 void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **out_connectionInfo)
@@ -434,7 +628,7 @@ void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **o
 	return NULL;
 }
 
-// Function for control thread that accepts new connections
+// function for the control thread that accepts new connections
 DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 {
 	while (1)
@@ -443,8 +637,9 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 		// create a new empty connection object and wait for new connections
 		CONNECTION *connection = malloc(sizeof(CONNECTION));
 		connection->socket = accept(acceptSocket, &connection->address.ipv4, (int)sizeof(struct sockaddr_in));
+		
 
-		// don't proceed if shutting down. accept will unblock but no connecctionj will be present. break instead.
+		// don't proceed if shutting down. accept will unblock but no connection will be present. break instead.
 		if (isShutdown)
 			break;
 
@@ -476,6 +671,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 		}
 	}
 	ExitThread(0);
+	return 0;
 }
 
 int startListenSocket(char* port) 
@@ -486,6 +682,7 @@ int startListenSocket(char* port)
 	InitializeCriticalSection(peerConnectionsCriticalSection);
 	InitializeCriticalSection(serviceConnectionsCriticalSection);
 	InitializeCriticalSection(serviceStringCriticalSection);
+	InitializeCriticalSection(numWorkerThreadsCriticalSection);
 
 	struct addrinfo *result = NULL, *ptr = NULL, hints;
 
@@ -537,24 +734,25 @@ int startListenSocket(char* port)
 		return 1;
 	}
 
-	completionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, numWorkerThreads);
+	completionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, maxWorkerThreads);
 
-	for (uint32_t x = 0; x < numWorkerThreads; x++)
+	EnterCriticalSection(numWorkerThreadsCriticalSection);
+	for (numWorkerThreads = 0; numWorkerThreads < maxWorkerThreads; numWorkerThreads++)
 	{
 		if (
 			CreateThread(
 				NULL,
 				0,
-				workConnections,
+				eventListener,
 				NULL,
 				0,
-				NULL)
-			== NULL)
+				NULL) == NULL)
 		{
 			printf("Create thread failed: %d\n", WSAGetLastError());
 			return 0;
 		}
 	}
+	LeaveCriticalSection(numWorkerThreadsCriticalSection);
 
 	acceptThread.threadHandle = CreateThread(
 		NULL,

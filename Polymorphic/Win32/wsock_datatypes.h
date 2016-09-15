@@ -1,37 +1,63 @@
 #pragma once
 
-
 #include <ws2tcpip.h>
-#include <vector.h>
 #include <stdint.h>
 #include <info_structure.h>
+
+#define POLYM_SERVICE_ARRAY_GETALL_OVERFLOW -1
 
 typedef struct {
 	DWORD threadID;
 	HANDLE threadHandle;
 } THREAD_INFO;
 
-// Complicated struct. Houses connection state and various data structures required for IOCP to function.
+typedef struct _POLYM_OVERLAPPED {
+	ULONG_PTR Internal;
+	ULONG_PTR InternalHigh;
+	union {
+		struct {
+			DWORD Offset;
+			DWORD OffsetHigh;
+		} DUMMYSTRUCTNAME;
+		PVOID Pointer;
+	} DUMMYUNIONNAME;
+
+	HANDLE  hEvent;
+	int eventType;
+	void* eventInfo;
+} POLYM_OVERLAPPED, *LPPOLYM_OVERLAPPED;
+
+// Connection struct. Houses connection state and various data structures required for IOCP to function.
+// All datas in this struct is immutible. It should never be changed after connection initialization.
+// This means that this data is thread-safe and should not need synchronization.
 typedef struct {
 	SOCKET socket; // the actual socket handle itself. the star of the show
 
 				   // connection information
 	POLYM_CONNECTION_INFO info; // info struct, containing info shared with the commands.c file. defnition in commands header file.
-	uint8_t encryptionType; // kind of encryption key used for this connection
-	uint8_t encryptionKey[32]; // the encryption key used to decrypt traffic
+	
+
+				   // connection internals
 	HANDLE checkAliveTimer; // the timer that periodically checks to see if the connection is still alive
+	HANDLE connectionMutex; // synchronizes access to this connection. used to sync both i/o use and status reads and writes
 
 							// IOCP internals
-	int32_t byteCount; // IOCP will put bytes buffered by response here. Although the wait function also returns the same thing. Basically used as a dummy for the IOCP create fucntion.
-	int32_t flags; // used for IOCP
-	WSABUF buffer; // buffer where IOCP data is stored before completion packet is passed
-	WSAOVERLAPPED overlap; // used for IOCP
+	int32_t byteCount; // bytecount for listening event
+	int32_t flags; // used for IOCP listening event
+	WSABUF buffer; // buffer where IOCP data is stored before completion packet is passed for listening event
+	POLYM_OVERLAPPED overlap; // reused overlapped info for listening event
 
 	union address {
 		struct sockaddr_in ipv4;
 		struct sockaddr_in6 ipv6;
 	} address;
 } CONNECTION;
+
+typedef struct {
+	CONNECTION* connection;
+	int event;
+	void* eventInfo;
+} CONNECTION_EVENT;
 
 typedef struct {
 	uint32_t size;      // bound of the internal array
@@ -58,27 +84,9 @@ typedef struct {
 	int_vector vacancies;
 } service_connection_array;
 
-CONNECTION* service_connection_array_get_connection(service_connection_array *vector, uint32_t index);
+int connection_array_get_all(connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray);
 
-/*
-void connection_array_init(connection_array *vector);
-void connection_array_init_capacity(connection_array *vector, uint32_t capacity);
-void connection_array_double_capacity_if_full(connection_array *vector);
-void connection_array_double_vacancy_capacity_if_full(connection_array *vector);
-int connection_array_append(connection_array *vector, CONNECTION *connection);
-int connection_array_pop_vacancy(connection_array *vector);
-int connection_array_push(connection_array *vector, CONNECTION *connection);
-int connection_array_element_exists(connection_array *vector, uint32_t index);
-int connection_array_delete(connection_array *vector, uint32_t index);
 CONNECTION* connection_array_get(connection_array *vector, uint32_t index);
-int connection_array_set(connection_array *vector, uint32_t index, CONNECTION *connection);
-void connection_array_trim(connection_array *vector);
-int connection_array_free(connection_array *vector);
-
-void service_connection_array_init(service_connection_array *vector);
-void service_connection_array_init_capacity(service_connection_array *vector, uint32_t capacity);
-void service_connection_array_double_capacity_if_full(service_connection_array *vector);
-void service_connection_array_double_vacancy_capacity_if_full(service_connection_array *vector);
-int service_connection_array_append(service_connection_array *vector, CONNECTION *connection);
-int service_connection_array_pop_vacancy(service_connection_array *vector);
-*/
+int service_connection_array_get_all_connections(service_connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray);
+CONNECTION* service_connection_array_get_connection(service_connection_array *vector, uint32_t index);
+CONNECTION* service_connection_array_get_aux(service_connection_array *vector, uint32_t indexService, uint32_t indexAux);

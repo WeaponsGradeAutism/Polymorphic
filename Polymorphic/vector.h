@@ -1,5 +1,7 @@
 //shamelessly stolen from https://www.happybearsoftware.com/implementing-a-dynamic-array
 
+#pragma once
+
 #include <stdbool.h>
 
 #define VECTOR_INITIAL_CAPACITY 50
@@ -43,7 +45,8 @@ void string_vector_free(string_vector *vector);
 //Int vector
 
 typedef struct {
-	int size;      // slots used so far
+	int size;      // the out bound of the array
+	int count;     // the number of slots used
 	int capacity;  // total available slots
 	int *data;     // array of integers we're storing
 } int_vector;
@@ -69,6 +72,8 @@ int int_array_append(int_array *vector, int value);
 int int_array_push(int_array *vector, int value);
 int int_array_delete(int_array *vector, int index);
 int int_array_get(int_array *vector, int index);
+int int_array_size(int_array *vector);
+int int_array_count(int_array *vector);
 bool int_array_set(int_array *vector, int index, int value);
 void int_array_trim(int_array *vector);
 void int_array_free(int_array *vector);

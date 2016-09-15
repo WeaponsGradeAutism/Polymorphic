@@ -1,49 +1,74 @@
 #include <connections.h>
-#include <commands.h>
 #include <definitions.h>
+#include <stdint.h>
+#include <info_structure.h>
+
+#ifndef MSG_WAITALL
+#define MSG_WAITALL 0x8
+#endif
 
 void sendPeerDisconnected(void* connection, uint16_t peerID)
 {
 	uint8_t buffer[4];
 
-	insertShortIntoBuffer(buffer[0], POLY_COMMAND_CONNECT_ERROR);
-	insertLongIntoBuffer(buffer[2], peerID);
+	insertShortIntoBuffer(buffer, POLY_COMMAND_CONNECT_ERROR);
+	insertLongIntoBuffer(&buffer[2], peerID);
 
 	sockSendAsync(connection, buffer, 4);
 }
 
-int sendDisconnect(void *connection, POLYM_CONNECTION_INFO *connection_info, uint16_t disconnectCode)
+int sendDisconnect(void *connection, uint16_t disconnectCode)
 {
 	uint8_t buffer[4]; // create a buffer for operations
 
-	insertShortIntoBuffer(buffer[0], POLY_COMMAND_DISCONNECT); // set command header to DISCONNECT
-	insertShortIntoBuffer(buffer[2], disconnectCode); // add the disconnection code
+	insertShortIntoBuffer(buffer, POLY_COMMAND_DISCONNECT); // set command header to DISCONNECT
+	insertShortIntoBuffer(&buffer[2], disconnectCode); // add the disconnection code
 
 	if (4 == sockSend(connection, buffer, 4)) // attempt to send the command
 	{
+		POLYM_CONNECTION_INFO *connection_info = getInfoFromConnection(connection);
 		cleanupConnection(connection_info); // if successful, cleanup the connection and return no error
 		return 0;
 	}
 	else
 	{
+		POLYM_CONNECTION_INFO *connection_info = getInfoFromConnection(connection);
 		cleanupConnection(connection_info); // if unsuccessful, cleanup the connection and return NOT_GRACEFUL error
 		return POLYM_ERROR_NOT_GRACEFUL;
 	}
 }
 
-int sendConnectErrorToService(void* connection, uint32_t ipv4AddressLong, uint16_t l4Port, uint8_t protocol, uint16_t errorCode)
+int trySockRecv(void *connection, uint8_t* buffer, uint32_t length)
+{
+	if (length == sockRecv(connection, buffer, length))
+		return 0;
+	else
+	{
+		// send error message and disconnect
+		sendDisconnect(connection, POLYM_ERROR_TRANSMISSION_FAIL);
+		return POLYM_ERROR_TRANSMISSION_FAIL;
+	}
+}
+
+void sendConnectErrorToService(void* connection, uint32_t ipv4AddressLong, uint16_t l4Port, uint8_t protocol, uint16_t errorCode)
 {
 	uint8_t buffer[12];
 
-	insertShortIntoBuffer(buffer[0], POLY_COMMAND_CONNECT_ERROR);
-	insertLongIntoBuffer(buffer[2], ipv4AddressLong);
-	insertShortIntoBuffer(buffer[6], l4Port);
-	insertShortIntoBuffer(buffer[8], protocol);
-	insertShortIntoBuffer(buffer[10], errorCode);
+	insertShortIntoBuffer(buffer, POLY_COMMAND_CONNECT_ERROR);
+	insertLongIntoBuffer(&buffer[2], ipv4AddressLong);
+	insertShortIntoBuffer(&buffer[6], l4Port);
+	insertShortIntoBuffer(&buffer[8], protocol);
+	insertShortIntoBuffer(&buffer[10], errorCode);
 
 	sockSendAsync(connection, buffer, 12);
 }
 
+/* connection procedure:
+1. check to see if the peer/service in question is already connected
+2. if requested service is not connected, stop and send error. if requested peer is not already connected, attempt to connect to it
+3. associate the resource with the connecter
+4. return the resource identifier
+*/
 void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 {
 
@@ -55,11 +80,11 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		service:
 		if (0 != trySockRecv(connection, buffer, 8))
 			return;
-		uint32_t ipv4AddressLong = getLongFromBuffer(buffer[0]);
-		char ipv4Address[4];
-		intIPtoStringIP(ipv4AddressLong, ipv4Address);
-		uint16_t l4Port = getShortFromBuffer(buffer[4]);
-		uint16_t protocol = getShortFromBuffer(buffer[6]);
+		uint32_t ipv4AddressLong = getLongFromBuffer(buffer);
+		char ipv4Address[16];
+		intIPtoStringIP(ipv4AddressLong, ipv4Address, 16);
+		uint16_t l4Port = getShortFromBuffer(&buffer[4]);
+		uint8_t protocol = (uint8_t)getShortFromBuffer(&buffer[6]);
 		uint16_t connectResult = initializeOutgoingConnection(ipv4Address, l4Port, protocol);
 		if (0 != connectResult)
 			sendConnectErrorToService(connection, ipv4AddressLong, l4Port, protocol, connectResult);
@@ -68,8 +93,8 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		// same as service
 		goto service;
 	case POLYM_MODE_PEER:
-		// peers should not be telling us to connect to other peers. disconnect.
-		sendDisconnect(connection, connection_info, POLYM_ERROR_INVALID_COMMAND);
+		// peers should not be telling us to connect to other peers. this is an error. disconnect.
+		sendDisconnect(connection, POLYM_ERROR_INVALID_COMMAND);
 		return;
 	}
 
@@ -86,13 +111,13 @@ int sendMessageToPeerID(uint16_t peerID, uint8_t *message, uint32_t length)
 	return 0;
 }
 
-int sendMessageErrorToService(void* connection, uint16_t peerID, uint16_t errorCode)
+void sendMessageErrorToService(void* connection, uint16_t peerID, uint16_t errorCode)
 {
 	uint8_t buffer[6];
 
-	insertShortIntoBuffer(buffer[0], POLY_COMMAND_MESSAGE_ERROR);
-	insertShortIntoBuffer(buffer[2], peerID);
-	insertShortIntoBuffer(buffer[4], errorCode);
+	insertShortIntoBuffer(buffer, POLY_COMMAND_MESSAGE_ERROR);
+	insertShortIntoBuffer(&buffer[2], peerID);
+	insertShortIntoBuffer(&buffer[4], errorCode);
 
 	sockSendAsync(connection, buffer, 6);
 }
@@ -108,14 +133,14 @@ int sendMessageToServiceID(uint16_t serviceID, uint16_t portID, uint8_t* message
 	return 0;
 }
 
-int sendMessageErrorToPeer(void* connection, uint16_t serviceID, uint16_t servicePort, uint16_t errorCode)
+void sendMessageErrorToPeer(void* connection, uint16_t serviceID, uint16_t servicePort, uint16_t errorCode)
 {
 	uint8_t buffer[8];
 
-	insertShortIntoBuffer(buffer[0], POLY_COMMAND_MESSAGE_ERROR);
-	insertShortIntoBuffer(buffer[2], serviceID);
-	insertShortIntoBuffer(buffer[4], servicePort);
-	insertShortIntoBuffer(buffer[6], errorCode);
+	insertShortIntoBuffer(buffer, POLY_COMMAND_MESSAGE_ERROR);
+	insertShortIntoBuffer(&buffer[2], serviceID);
+	insertShortIntoBuffer(&buffer[4], servicePort);
+	insertShortIntoBuffer(&buffer[6], errorCode);
 
 	sockSendAsync(connection, buffer, 6);
 }
@@ -131,12 +156,12 @@ void sendPeerMessage(void* connection, uint8_t* peerToPeerMessage)
 
 	uint16_t destPeerID = getShortFromBuffer(buffer);
 
-	if (0 != trySockRecv(connection, peerToPeerMessage[4], 6))
+	if (0 != trySockRecv(connection, &peerToPeerMessage[4], 6))
 		return; // attempt to recieve the static header
 
-	uint16_t messageLength = getShortFromBuffer(peerToPeerMessage[8]); // get the message feame length. so we can create an appropriately sized buffer
+	uint16_t messageLength = getShortFromBuffer(&peerToPeerMessage[8]); // get the message feame length. so we can create an appropriately sized buffer
 
-	if (0 != trySockRecv(connection, peerToPeerMessage[10], messageLength))
+	if (0 != trySockRecv(connection, &peerToPeerMessage[10], messageLength))
 		return; // attempt to recieve messageLength, return if fail.
 
 	uint32_t sendResult = sendMessageToPeerID(destPeerID, peerToPeerMessage, messageLength + 10);
@@ -169,7 +194,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint8_t peerToPeerMessage[65536 + 10]; // the max possible size of a peer->peer message command
 
 		insertShortIntoBuffer(peerToPeerMessage, connection_info->mode_info.serviceAux.serviceID);
-		insertShortIntoBuffer(peerToPeerMessage[2], connection_info->mode_info.serviceAux.serviceID);
+		insertShortIntoBuffer(&peerToPeerMessage[2], connection_info->mode_info.serviceAux.serviceID);
 
 		sendPeerMessage(connection, peerToPeerMessage);
 	}
@@ -184,16 +209,16 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			return; // attempt to recieve the message command header
 
 		uint16_t destServiceID = getShortFromBuffer(buffer);
-		uint16_t destServicePort = getShortFromBuffer(buffer[2]); //get the destination from the header
+		uint16_t destServicePort = getShortFromBuffer(&buffer[2]); //get the destination from the header
 
 		insertShortIntoBuffer(peerToServiceMessage, connection_info->mode_info.peer.peerID);
 
-		if (0 != trySockRecv(connection, peerToServiceMessage[2], 6))
+		if (0 != trySockRecv(connection, &peerToServiceMessage[2], 6))
 			return; // attempt to recieve the message command header
 
-		uint16_t messageLength = getShortFromBuffer(peerToServiceMessage[6]);
+		uint16_t messageLength = getShortFromBuffer(&peerToServiceMessage[6]);
 
-		if (0 != trySockRecv(connection, peerToServiceMessage[8], messageLength))
+		if (0 != trySockRecv(connection, &peerToServiceMessage[8], messageLength))
 			return; // attempt to recieve the initial message frame in the message command
 
 		int32_t sendResult = sendMessageToServiceID(destServiceID, destServicePort, peerToServiceMessage, messageLength + 8);
@@ -223,7 +248,7 @@ void processCommand(void *connection, uint8_t *command, POLYM_CONNECTION_INFO *c
 	case POLY_COMMAND_MESSAGE:
 		recvMessage(connection, connection_info);
 	case POLY_COMMAND_DISCONNECT:
-		recvDisconnect(connection_info);
+		//recvDisconnect(connection_info);
 
 	default:
 		break;

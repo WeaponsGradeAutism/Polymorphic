@@ -1,3 +1,4 @@
+#pragma once
 
 #include <sqlite3.h>
 #include <vector.h>
@@ -28,6 +29,3 @@ sqlite3* getCurrentDatabase();
 
 int getPeerFromSocket(char* address, int port);
 int getServicesOnPeer(int peerID, const char *stringOut, int32_t bufferSize);
-int_vector getPeersOnAddress(char* address);
-peer_info getPeerInfoFromID(int peerID);
-int_vector getPeersOnService(char* service);

@@ -1,12 +1,15 @@
 #pragma once
 
 #include <stdint.h>
+#include <vector.h>
 
 //consts (need to be moved)
 #define POLYM_SERVICE_MAX_PEER_CONNECTIONS 100
 #define POLYM_PEER_MAX_SERVICE_CONNECTIONS 20
 
-// connection info specific to main service connections
+
+
+// mode specific connection info; initialized in connections.c when connections are initialized
 typedef struct
 {
 	uint16_t serviceID; // the id # of the service this is running
@@ -14,7 +17,6 @@ typedef struct
 	char* serviceString; // the string that defines this service
 } POLYM_SERVICE_INFO;
 
-// connection info specific to auxiliary service connections
 typedef struct
 {
 	uint16_t serviceID; // the id # of the service this is running
@@ -28,32 +30,31 @@ typedef struct
 
 
 
-
+// mode specific connection state; initialized in connections.c when connections are initialized
+// Data is MUTABLE.
 typedef struct
 {
-	int connectionID; // services that are currently using this peer connection
-	uint16_t serviceLocalPeerID; // the peer ID that this peer is on that service
-} POLYM_CONNECTED_SERVICE_STATUS;
-
-typedef struct
-{
-	POLYM_CONNECTED_SERVICE_STATUS connectedServices[POLYM_PEER_MAX_SERVICE_CONNECTIONS]; // services that are currently using this peer connection
-	uint16_t connectedServicesCount; // number of currently connected services
+	int_array connectedServices; // services that are currently using this peer connection
+	int_array outboundMessageQueue; // a list of services that have messages queued to be sent to this peer
 } POLYM_PEER_STATUS;
 
 typedef struct
 {
-	int connectedPeers[POLYM_SERVICE_MAX_PEER_CONNECTIONS]; // services that are currently using this peer connection
-	uint16_t connectedPeersCount; // number of currently connected peers
+	int_array connectedPeers; // services that are currently using this peer connection
 } POLYM_SERVICE_STATUS;
 
 
 
+// Connection info structure. Contains conneciton info shared between the socket implementation and the commands implementation.
+// This data is also immutable and can be considered thread-safe, EXCEPT FOR THE STATUS UNION.
+// Status data is mutable, and so reads and writes must be synchronized using the lock/unlockConnectionMutexByInfo interfaces.
 
 typedef struct {
 	uint8_t protocol; // the layer-4 protocol used for this connection
 	uint8_t mode; // is this socket connected to a local service or a peer? POLYM_MODE_SERVICE or POLYM_MODE_PEER
-	uint8_t addrtype; //IPv4 or v6
+	uint8_t addrtype; //IPPROTO_IPV4 or IPPROTO_IPV6
+	uint8_t encryptionType; // kind of encryption key used for this connection
+	uint8_t encryptionKey[32]; // the encryption key used to decrypt traffic
 
 	union info // connection type specific information
 	{

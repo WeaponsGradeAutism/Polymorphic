@@ -175,6 +175,7 @@ void int_array_init(int_array *vector) {
 	// initialize size and capacity
 	vector->members.size = 0;
 	vector->members.capacity = VECTOR_INITIAL_CAPACITY;
+	vector->members.count = 0;
 	vector->vacancies.size = 0;
 	vector->vacancies.capacity = VECTOR_INITIAL_CAPACITY;
 
@@ -187,6 +188,7 @@ void int_array_init_capacity(int_array *vector, int capacity) {
 	// initialize size and capacity
 	vector->members.size = 0;
 	vector->members.capacity = capacity;
+	vector->members.count = 0;
 	vector->vacancies.size = 0;
 	vector->vacancies.capacity = capacity;
 
@@ -232,6 +234,7 @@ int int_array_append(int_array *vector, int value)
 	// append the value and increment vector->size
 	int index = vector->members.size++;
 	vector->members.data[index] = value;
+	vector->members.count++;
 	return index;
 }
 
@@ -255,6 +258,7 @@ int int_array_push(int_array *vector, int value) {
 	{
 		int index = int_array_get_vacancy(vector);
 		vector->members.data[index] = value;
+		vector->members.count++;
 		int_array_pop_vacancy(vector);
 		return index;
 	}
@@ -273,6 +277,7 @@ int int_array_delete(int_array *vector, int index)
 	int_array_double_vacancy_capacity_if_full(vector);
 	vector->vacancies.data[vector->vacancies.size++] = index;
 	vector->members.data[index] = INT_MIN;
+	vector->members.count--;
 
 	return 0;
 }
@@ -284,6 +289,15 @@ int int_array_get(int_array *vector, int index) {
 	}
 
 	return vector->members.data[index];
+}
+
+int int_array_size(int_array *vector) 
+{
+	return vector->members.size;
+}
+int int_array_count(int_array *vector) 
+{
+	return vector->members.count;
 }
 
 bool int_array_set(int_array *vector, int index, int value) {
