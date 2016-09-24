@@ -9,7 +9,7 @@
 #define POLYM_ARRAY_PUSH_SUCCESS_GROW 1
 #define POLYM_ARRAY_PUSH_ERROR_FULL 2
 
-int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connection_info);
-uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t protocol);
+int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connection_info, void** out_connectionPointer);
+uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t protocol, void **out_connectionPointer);
 void cleanupConnection(POLYM_CONNECTION_INFO *connection_info);
 

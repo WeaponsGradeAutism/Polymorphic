@@ -50,11 +50,8 @@ typedef struct
 // Status data is mutable, and so reads and writes must be synchronized using the lock/unlockConnectionMutexByInfo interfaces.
 
 typedef struct {
-	uint8_t protocol; // the layer-4 protocol used for this connection
+	
 	uint8_t mode; // is this socket connected to a local service or a peer? POLYM_MODE_SERVICE or POLYM_MODE_PEER
-	uint8_t addrtype; //IPPROTO_IPV4 or IPPROTO_IPV6
-	uint8_t encryptionType; // kind of encryption key used for this connection
-	uint8_t encryptionKey[32]; // the encryption key used to decrypt traffic
 
 	union info // connection type specific information
 	{

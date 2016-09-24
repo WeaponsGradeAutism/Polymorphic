@@ -33,6 +33,15 @@ typedef struct _POLYM_OVERLAPPED {
 typedef struct {
 	SOCKET socket; // the actual socket handle itself. the star of the show
 
+	union address {
+		struct sockaddr_in ipv4;
+		struct sockaddr_in6 ipv6;
+	} address;
+	uint8_t protocol; // the layer-4 protocol used for this connection
+	uint8_t addrtype; //IPPROTO_IPV4 or IPPROTO_IPV6
+	uint8_t encryptionType; // kind of encryption key used for this connection
+	uint8_t encryptionKey[32]; // the encryption key used to decrypt traffic
+
 				   // connection information
 	POLYM_CONNECTION_INFO info; // info struct, containing info shared with the commands.c file. defnition in commands header file.
 	
@@ -45,12 +54,10 @@ typedef struct {
 	int32_t byteCount; // bytecount for listening event
 	int32_t flags; // used for IOCP listening event
 	WSABUF buffer; // buffer where IOCP data is stored before completion packet is passed for listening event
+	uint8_t bufferMemory[2]; // memory storage for the buf element of WSABUF
 	POLYM_OVERLAPPED overlap; // reused overlapped info for listening event
 
-	union address {
-		struct sockaddr_in ipv4;
-		struct sockaddr_in6 ipv6;
-	} address;
+	
 } CONNECTION;
 
 typedef struct {
@@ -63,7 +70,7 @@ typedef struct {
 	uint32_t size;      // bound of the internal array
 	uint32_t members;   // the number of used slots
 	uint32_t capacity;  // total available slots
-	CONNECTION **data;     // array of connections we're storing
+	CONNECTION *data;     // array of connections we're storing
 } connection_vector;
 
 typedef struct {
@@ -75,8 +82,8 @@ typedef struct {
 	uint32_t size;      // bound of the internal array
 	uint32_t members;   // the number of used slots
 	uint32_t capacity;  // total available slots
-	CONNECTION **data;     // array of connections we're storing
-	connection_array **auxConnectionContainers; // array of aux connections containers
+	CONNECTION *data;     // array of connections we're storing
+	connection_array *auxConnectionContainers; // array of aux connections containers
 } service_connection_vector;
 
 typedef struct {
@@ -84,9 +91,19 @@ typedef struct {
 	int_vector vacancies;
 } service_connection_array;
 
+void connection_array_init(connection_array *vector);
+void connection_array_init_capacity(connection_array *vector, uint32_t capacity);
 int connection_array_get_all(connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray);
+CONNECTION * connection_array_get(connection_array *vector, uint32_t index);
+int connection_array_push(connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer);
+int connection_array_delete(connection_array *vector, uint32_t index);
 
-CONNECTION* connection_array_get(connection_array *vector, uint32_t index);
+void service_connection_array_init(service_connection_array *vector);
 int service_connection_array_get_all_connections(service_connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray);
-CONNECTION* service_connection_array_get_connection(service_connection_array *vector, uint32_t index);
-CONNECTION* service_connection_array_get_aux(service_connection_array *vector, uint32_t indexService, uint32_t indexAux);
+CONNECTION * service_connection_array_get_connection(service_connection_array *vector, uint32_t index);
+CONNECTION * service_connection_array_get_aux(service_connection_array *vector, uint32_t indexService, uint32_t indexAux);
+int service_connection_array_service_string_exists(service_connection_array *vector, char *string);
+int service_connection_array_push(service_connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer);
+int service_connection_array_delete(service_connection_array *vector, uint32_t index);
+int service_connection_array_push_aux(service_connection_array *vector, int index, CONNECTION connection, CONNECTION **out_connectionPointer);
+int service_connection_array_delete_aux(service_connection_array *vector, uint32_t index, uint32_t indexAux);

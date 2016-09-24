@@ -50,13 +50,13 @@ int trySockRecv(void *connection, uint8_t* buffer, uint32_t length)
 	}
 }
 
-void sendConnectErrorToService(void* connection, uint32_t ipv4AddressLong, uint16_t l4Port, uint8_t protocol, uint16_t errorCode)
+void sendConnectErrorToService(void* connection, uint32_t address, uint16_t port, uint8_t protocol, uint16_t errorCode)
 {
 	uint8_t buffer[12];
 
 	insertShortIntoBuffer(buffer, POLY_COMMAND_CONNECT_ERROR);
-	insertLongIntoBuffer(&buffer[2], ipv4AddressLong);
-	insertShortIntoBuffer(&buffer[6], l4Port);
+	insertLongIntoBuffer(&buffer[2], address);
+	insertShortIntoBuffer(&buffer[6], port);
 	insertShortIntoBuffer(&buffer[8], protocol);
 	insertShortIntoBuffer(&buffer[10], errorCode);
 
@@ -77,17 +77,38 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	switch (connection_info->mode)
 	{
 	case POLYM_MODE_SERVICE:
-		service:
+	service:
+
+		// recieve the connect info
 		if (0 != trySockRecv(connection, buffer, 8))
 			return;
-		uint32_t ipv4AddressLong = getLongFromBuffer(buffer);
-		char ipv4Address[16];
-		intIPtoStringIP(ipv4AddressLong, ipv4Address, 16);
-		uint16_t l4Port = getShortFromBuffer(&buffer[4]);
+
+		// convert the integer fields to local format
+		uint32_t address = getLongFromBuffer(buffer);
+		uint16_t port = getShortFromBuffer(&buffer[4]);
 		uint8_t protocol = (uint8_t)getShortFromBuffer(&buffer[6]);
-		uint16_t connectResult = initializeOutgoingConnection(ipv4Address, l4Port, protocol);
+
+		// convert the integer address into string presentation
+		char stringAddress[16];
+		intIPtoStringIP(address, stringAddress, 16);
+
+		//don't connect to a loopback address
+		if (address >= 2130706433 && address <= 2147483646)
+		{
+			sendConnectErrorToService(connection, address, port, protocol, POLYM_ERROR_INVALID_ADDRESS);
+			return;
+		}
+
+		// check to see if the peer is already connected
+		int checkAddressConnected = addressConnected(stringAddress, port, protocol);
+		if (checkAddressConnected != -1)
+		{
+
+		}
+		void *newConnection;
+		uint16_t connectResult = initializeOutgoingConnection(stringAddress, port, protocol, &newConnection);
 		if (0 != connectResult)
-			sendConnectErrorToService(connection, ipv4AddressLong, l4Port, protocol, connectResult);
+			sendConnectErrorToService(connection, address, port, protocol, connectResult);
 		break;
 	case POLYM_MODE_SERVICE_AUX:
 		// same as service

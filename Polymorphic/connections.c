@@ -17,7 +17,7 @@ void sendErrorCode(uint16_t errorCode, void *connection)
 	sockSend(connection, buffer, 2);
 }
 
-void InitializeNewPeerInfo(POLYM_CONNECTION_INFO *connection_info, void *connection)
+void initializeNewPeerInfo(POLYM_CONNECTION_INFO *connection_info, void *connection, void **out_connectionPointer)
 {
 
 	// initialize peer status struct
@@ -31,10 +31,10 @@ void InitializeNewPeerInfo(POLYM_CONNECTION_INFO *connection_info, void *connect
 	int_array_init(&connection_info->mode_status.peer.connectedServices);
 
 	// add new peer to list
-	connection_info->mode_info.peer.peerID = addNewPeer(connection);
+	connection_info->mode_info.peer.peerID = addNewPeer(connection, out_connectionPointer);
 }
 
-int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connection_info)
+int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connection_info, void** out_connectionPointer)
 {
 
 	// send greeting
@@ -113,7 +113,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 
 			// attempt to add a new service to the internal list of service connections
 			// TODO: require user approval
-			connection_info->mode_info.service.serviceID = addNewService(connection);
+			connection_info->mode_info.service.serviceID = addNewService(connection, out_connectionPointer);
 
 			// if adding new service fails, send error code and abort.
 			// TODO: better error handling
@@ -177,7 +177,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 
 			// set the service ID and port info
 			connection_info->mode_info.serviceAux.serviceID = serviceID;
-			connection_info->mode_info.serviceAux.servicePort = addNewServiceAux(serviceID, connection);
+			connection_info->mode_info.serviceAux.servicePort = addNewServiceAux(serviceID, connection, out_connectionPointer);
 
 			// construct the last send buffer to send
 			buffer[0] = 0;
@@ -199,13 +199,13 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 	{
 
 		// initalize the peer connection
-		InitializeNewPeerInfo(connection_info, connection);
+		initializeNewPeerInfo(connection_info, connection, out_connectionPointer);
 
 		//construct the return buffer
 		buffer[0] = 0;
 		buffer[1] = 0; // set the first two bytes (result code) to 0 to indicate success
 
-		if (4 != sockSend(connection, buffer, 2)) //send the success code and peer ID
+		if (2 != sockSend(connection, buffer, 2)) //send the success code and peer ID
 		{
 			// if for some reason this fails, we'll need to dispose of the connection
 			removePeer(connection_info->mode_info.peer.peerID);
@@ -216,11 +216,11 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 	}
 }
 
-uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t protocol)
+uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t protocol, void **out_connectionPointer)
 {
 	POLYM_CONNECTION_INFO *info;
 	char l4PortString[6];
-	void *connection = openNewTCPConnection(ipAddress, _itoa(l4Port, l4PortString, 10), &info);
+	void *connection = openNewConnection(ipAddress, _itoa(l4Port, l4PortString, 10), &info, protocol);
 
 	if (connection == NULL)
 		return POLYM_ERROR_CONNECTION_FAIL;
@@ -230,6 +230,7 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 	if (6 != sockRecv(connection, buffer, 6))
 	{
 		sendErrorCode(POLYM_ERROR_CONNECTION_FAIL, connection);
+		cleanupConnection(info);
 		return POLYM_ERROR_CONNECTION_FAIL;
 	}
 
@@ -240,6 +241,7 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 		if (1 != sockRecv(connection, &buffer[x], 1))
 		{
 			sendErrorCode(POLYM_ERROR_CONNECTION_FAIL, connection);
+			cleanupConnection(info);
 			return POLYM_ERROR_CONNECTION_FAIL;
 		}
 
@@ -269,10 +271,11 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 	if (2 != sockRecv(connection, buffer, 2))
 	{
 		sendErrorCode(POLYM_ERROR_CONNECTION_FAIL, connection);
+		cleanupConnection(info);
 		return POLYM_ERROR_CONNECTION_FAIL;
 	}
 
-	InitializeNewPeerInfo(info, connection);
+	initializeNewPeerInfo(info, connection, out_connectionPointer);
 
 	// TODO: send service update request and update the database
 

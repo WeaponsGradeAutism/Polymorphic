@@ -224,7 +224,7 @@ int getPeerFromSocket(char* address, int port)
 	}
 }
 
-int getServicesOnPeer(int peerID, const char *stringOut, int32_t bufferSize)
+int getServicesOnPeer(int peerID, char *stringOut, int32_t bufferSize)
 {
 	sqlite3_bind_int(getServicesOnPeer_Stmt, 1, peerID);
 	if (SQLITE_ROW == sqlite3_step(getServicesOnPeer_Stmt))

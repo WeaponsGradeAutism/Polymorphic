@@ -28,4 +28,4 @@ int closeDatabase(sqlite3* db);
 sqlite3* getCurrentDatabase();
 
 int getPeerFromSocket(char* address, int port);
-int getServicesOnPeer(int peerID, const char *stringOut, int32_t bufferSize);
+int getServicesOnPeer(int peerID, char *stringOut, int32_t bufferSize);

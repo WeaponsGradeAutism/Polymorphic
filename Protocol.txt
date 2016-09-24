@@ -206,7 +206,7 @@ command only
 
 
 0008: MESSAGE (s==>p p==>p p==>s)
-The basic building block of POLY. Sends messages from services from peer to peer. Supports multi-cast.
+The basic building block of POLY. Sends messages from services from peer to peer. 
 
 (s==>p)
 0: 2-byte destination peer id
