@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <openssl\rand.h>
 
+///<summary> Sends the polymorphic greeting over the supplied connection as a synchronous action. </summary>
+///<returns> Error code on failure, 0 for success </returns>
 int sendGreeting(void *connection)
 {
 	if (sizeof(POLYMORPHIC_GREETING) != sockSend(connection, POLYMORPHIC_GREETING, sizeof(POLYMORPHIC_GREETING)))
@@ -10,6 +12,7 @@ int sendGreeting(void *connection)
 	return 0;
 }
 
+///<summary> Send the supplied polymorphic error code over the supplied connection as a synchronous action. </summary>
 void sendErrorCode(uint16_t errorCode, void *connection)
 {
 	uint8_t buffer[2];
@@ -17,6 +20,7 @@ void sendErrorCode(uint16_t errorCode, void *connection)
 	sockSend(connection, buffer, 2);
 }
 
+///<summary> Shared code for initializing an info object for a new peer connection. </summary>
 void initializeNewPeerInfo(POLYM_CONNECTION_INFO *connection_info, void *connection, void **out_connectionPointer)
 {
 
@@ -34,6 +38,11 @@ void initializeNewPeerInfo(POLYM_CONNECTION_INFO *connection_info, void *connect
 	connection_info->mode_info.peer.peerID = addNewPeer(connection, out_connectionPointer);
 }
 
+///<summary> Completely initializes a new POLY connection that has been recieved.</summary>
+///<param name='connection'> Connection socket for the incoming connection. </param>
+///<param name='connection_info'> The connection info object associated with this connection</param>
+///<param name='out_connectionPointer'> (OUT) The connection object for the newly initialized connection. </param>
+///<returns> Error code on failure, connection mode on success. <returns>
 int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connection_info, void** out_connectionPointer)
 {
 
@@ -43,7 +52,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		return POLYM_MODE_FAILED;
 	}
 
-	uint8_t buffer[8]; // create a buffer for operations
+	uint8_t buffer[8]; // create a re-usable buffer for operations
 
 					   // attempt to recieve encryption setting
 	if (2 != sockRecv(connection, buffer, 2))
@@ -52,7 +61,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 	// handle encryption negotiation
 	if (getShortFromBuffer(buffer) != 0)
 	{
-		return POLYM_MODE_FAILED; // encryption not yet implemented
+		return POLYM_MODE_FAILED; // TODO: encryption not yet implemented
 	}
 
 	// attempt to recieve realm code
