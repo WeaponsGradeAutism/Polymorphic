@@ -27,7 +27,6 @@
 // POLY protocol error codes
 #define POLY_PROTO_ERROR_PEER_DOES_NOT_EXIST 1 // The requested peer ID does not exist on this server
 #define POLY_PROTO_ERROR_TRANSMISSION_FAIL 2 // A socket operation failed
-#define POLY_PROTO_ERROR_CONNECTION_FAIL 3 // The outbound connection failed (TODO: change this to connect command error
 #define POLY_PROTO_ERROR_INVALID_COMMAND 4 // The supplied command code was invalid (TODO: disambiguate between globally invalid commands and commands that are invalid for this realm)
 #define POLY_PROTO_ERROR_INVALID_ADDRESS 5 // The supplied IP address was not valid
 #define POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST 6 // The specified service does not exist on this server
@@ -42,6 +41,7 @@
 
 // POLY command error codes
 #define POLY_COMMAND_CONNECT_ERROR_BUSY 0x0001 // connection already exists, but the connection attempt timed out
+#define POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL 3 // The outbound connection failed (TODO: change this to connect command error
 
 // Polymorphic thread events
 #define POLYM_EVENT_LISTEN 1 // Socket being listened on has recieved an event

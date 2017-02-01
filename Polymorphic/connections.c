@@ -165,15 +165,15 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 	void *connection = openNewConnection(ipAddress, _itoa(l4Port, l4PortString, 10), &info, protocol);
 
 	if (connection == NULL)
-		return POLY_PROTO_ERROR_CONNECTION_FAIL;
+		return POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL;
 
 	uint8_t buffer[500];
 
 	if (6 != sockRecv(connection, buffer, 6))
 	{
-		sendErrorCode(POLY_PROTO_ERROR_CONNECTION_FAIL, connection);
+		sendErrorCode(POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL, connection);
 		removeConnection(info);
-		return POLY_PROTO_ERROR_CONNECTION_FAIL;
+		return POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL;
 	}
 
 	uint8_t newlineTerminus = 0;
@@ -182,9 +182,9 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 
 		if (1 != sockRecv(connection, &buffer[x], 1))
 		{
-			sendErrorCode(POLY_PROTO_ERROR_CONNECTION_FAIL, connection);
+			sendErrorCode(POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL, connection);
 			removeConnection(info);
-			return POLY_PROTO_ERROR_CONNECTION_FAIL;
+			return POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL;
 		}
 
 		if (buffer[x] == '\r')
@@ -212,9 +212,9 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 
 	if (2 != sockRecv(connection, buffer, 2))
 	{
-		sendErrorCode(POLY_PROTO_ERROR_CONNECTION_FAIL, connection);
+		sendErrorCode(POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL, connection);
 		removeConnection(info);
-		return POLY_PROTO_ERROR_CONNECTION_FAIL;
+		return POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL;
 	}
 
 	initializeNewPeerInfo(info, connection, out_connectionPointer);
