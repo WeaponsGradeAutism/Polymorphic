@@ -79,57 +79,57 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		// initalize connected peer array
 		int_array_init(&connection_info->mode_status.service.connectedPeers);
 
-			// initialize new service connection
-			connection_info->mode = POLYM_MODE_SERVICE;
+		// initialize new service connection
+		connection_info->mode = POLYM_MODE_SERVICE;
 
-			//attempt to recieve service string size
-			if (2 != sockRecv(connection, buffer, 2))
-			{
-				sendErrorCode(POLYM_ERROR_SERVICE_STRING_SIZE_FAIL, connection);
-				return POLYM_MODE_FAILED;
-			}
+		//attempt to recieve service string size
+		if (2 != sockRecv(connection, buffer, 2))
+		{
+			sendErrorCode(POLYM_ERROR_SERVICE_STRING_SIZE_FAIL, connection);
+			return POLYM_MODE_FAILED;
+		}
 
-			// check validity of service string size, initialize string
-			int serviceStringSize = getShortFromBuffer(buffer);
-			if (serviceStringSize < 1)
-			{
-				sendErrorCode(POLYM_ERROR_INVALID_SERVICE_STRING_SIZE, connection);
-				return POLYM_MODE_FAILED;
-			}
-			connection_info->mode_info.service.serviceString = malloc(sizeof(uint8_t) * serviceStringSize);
+		// check validity of service string size, initialize string
+		int serviceStringSize = getShortFromBuffer(buffer);
+		if (serviceStringSize < 1)
+		{
+			sendErrorCode(POLYM_ERROR_INVALID_SERVICE_STRING_SIZE, connection);
+			return POLYM_MODE_FAILED;
+		}
+		connection_info->mode_info.service.serviceString = malloc(sizeof(uint8_t) * serviceStringSize);
 
-			//get the service string
-			if (serviceStringSize != sockRecv(connection, connection_info->mode_info.service.serviceString, serviceStringSize))
-			{
-				sendErrorCode(POLYM_ERROR_SERVICE_STRING_FAIL, connection_info);
-				return POLYM_MODE_FAILED;
-			}
+		//get the service string
+		if (serviceStringSize != sockRecv(connection, connection_info->mode_info.service.serviceString, serviceStringSize))
+		{
+			sendErrorCode(POLYM_ERROR_SERVICE_STRING_FAIL, connection_info);
+			return POLYM_MODE_FAILED;
+		}
 
-			// attempt to add a new service to the internal list of service connections
-			// TODO: require user approval
-			connection_info->mode_info.service.serviceID = addNewService(connection, out_connectionPointer);
+		// attempt to add a new service to the internal list of service connections
+		// TODO: require user approval
+		connection_info->mode_info.service.serviceID = addNewService(connection, out_connectionPointer);
 
-			// if adding new service fails, send error code and abort.
-			// TODO: better error handling
-			if (connection_info->mode_info.service.serviceID == -1)
-			{
-				sendErrorCode(POLYM_ERROR_SERVICE_CREATION_FAIL, connection);
-				return POLYM_MODE_FAILED;
-			}
+		// if adding new service fails, send error code and abort.
+		// TODO: better error handling
+		if (connection_info->mode_info.service.serviceID == -1)
+		{
+			sendErrorCode(POLYM_ERROR_SERVICE_CREATION_FAIL, connection);
+			return POLYM_MODE_FAILED;
+		}
 
-			// construct the last send buffer to send
-			buffer[0] = 0;
-			buffer[1] = 0; // set the first two bytes (result code) to 0 to indicate success
+		// construct the last send buffer to send
+		buffer[0] = 0;
+		buffer[1] = 0; // set the first two bytes (result code) to 0 to indicate success
 
-																		  // send the buffer
-			if (2 != sockSend(connection, buffer, 8))
-			{
-				// if for some reason this fails, we need to remove the connection from the service list
-				removeService(connection_info->mode_info.service.serviceID);
-				return POLYM_MODE_SERVICE; // do not return fail so that the connection isn't closed twice
-			}
-			else
-				return POLYM_MODE_SERVICE;
+																	  // send the buffer
+		if (2 != sockSend(connection, buffer, 8))
+		{
+			// if for some reason this fails, we need to remove the connection from the service list
+			removeService(connection_info->mode_info.service.serviceID);
+			return POLYM_MODE_SERVICE; // do not return fail so that the connection isn't closed twice
+		}
+		else
+			return POLYM_MODE_SERVICE;
 	}
 	else
 	{
