@@ -7,15 +7,16 @@
 #define POLYM_PROTO_HTTPS 3
 #define POLYM_PROTO_SMTP 4
 
-//poly modes
+//poly connection modes
 #define POLYM_MODE_UNINIT -1
 #define POLYM_MODE_FAILED 0
 #define POLYM_MODE_SERVICE 1
 #define POLYM_MODE_PEER 2
 
-//error codes
+// internal error codes
 #define POLYM_ERROR_NOT_GRACEFUL 1
 
+// connection initialization error codes
 #define POLYM_INIT_ERROR_REALM_CODE_FAIL 1
 #define POLYM_INIT_ERROR_MAX_CONNECTIONS 2
 #define POLYM_INIT_ERROR_SERVICE_STRING_SIZE_FAIL 3
@@ -23,6 +24,7 @@
 #define POLYM_INIT_ERROR_SERVICE_STRING_FAIL 5
 #define POLYM_INIT_ERROR_SERVICE_CREATION_FAIL 6
 
+// POLY protocol error codes
 #define POLYM_PROTO_ERROR_PEER_DOES_NOT_EXIST 1
 #define POLYM_PROTO_ERROR_TRANSMISSION_FAIL 2
 #define POLYM_PROTO_ERROR_CONNECTION_FAIL 3
@@ -30,6 +32,7 @@
 #define POLYM_PROTO_ERROR_INVALID_ADDRESS 5
 #define POLYM_PROTO_ERROR_SERVICE_DOES_NOT_EXIST 6
 
+// POLY command codes
 #define POLY_COMMAND_CONNECT 0x0000
 #define POLY_COMMAND_CONNECT_ERROR 0x0001
 #define POLY_COMMAND_DISCONNECT 0x0001
@@ -37,8 +40,10 @@
 #define POLY_COMMAND_MESSAGE 0x0002
 #define POLY_COMMAND_MESSAGE_ERROR 0x0003
 
+// POLY command error codes
 #define POLY_COMMAND_CONNECT_ERROR_BUSY 0x0001 // connection already exists, but the connection attempt timed out
 
+// Polymorphic thread events
 #define POLYM_EVENT_LISTEN 1
 #define POLYM_EVENT_ASYNC_SEND 2
 #define POLYM_EVENT_SHUTDOWN 3
