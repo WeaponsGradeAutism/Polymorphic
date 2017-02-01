@@ -382,7 +382,7 @@ CONNECTION * service_connection_array_get_connection(service_connection_array *v
 }
 
 int service_connection_array_get_all_connections(service_connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray)
-{
+{ // TODO: Does the connection object store its connection ID?
 	uint32_t currentIndex = 0;
 	for (unsigned int x = 0; x < vector->connections.size && currentIndex < maxCount; x++)
 	{

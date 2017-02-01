@@ -222,6 +222,7 @@ int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
 	return -1;
 }
 
+///<summary> Converts an integer ipv4 representation to its string representation. </summary>
 const char* intIPtoStringIP(uint32_t ipv4AddressLong, char *out_StringIP, int bufferSize)
 {
 	struct in_addr addressOjbect;
@@ -229,11 +230,13 @@ const char* intIPtoStringIP(uint32_t ipv4AddressLong, char *out_StringIP, int bu
 	return inet_ntop(AF_INET, &addressOjbect, out_StringIP, bufferSize);
 }
 
+///<summary> Locks the synchronization object associated with a connection object. </summary>
 void lockConnectionMutex(CONNECTION *connection)
 {
 	EnterCriticalSection(connection->connectionMutex);
 }
 
+///<summary> Locks the synchronization object associated with a connection object, using its info object. </summary>
 void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 {
 	switch (info->mode)
@@ -249,12 +252,13 @@ void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 	}
 }
 
+///<summary> Unlocks the synchronization object associated with a connection object.</summary>
 void unlockConnectionMutex(CONNECTION *connection)
 {
 	LeaveCriticalSection(connection->connectionMutex);
 }
 
-
+///<summary> Unlocks the synchronization object associated with a connection object, using its info object. </summary>
 void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 {
 	switch (info->mode)
@@ -270,7 +274,7 @@ void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 	}
 }
 
-// function that all event listener threads will execute
+///<summary> This is the main event loop that worker threads will run. </summary>
 DWORD WINAPI eventListener(LPVOID dummy)
 {
 
@@ -286,7 +290,7 @@ DWORD WINAPI eventListener(LPVOID dummy)
 		switch (overlap->eventType)
 		{
 
-		case POLYM_EVENT_LISTEN:
+		case POLYM_EVENT_LISTEN: // Recieved data on one of the sockets that are listening.
 			// reset the check alive timer because of this activity
 			ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
 
@@ -302,14 +306,14 @@ DWORD WINAPI eventListener(LPVOID dummy)
 			//rearm the connection on the listen list
 			WSARecv(connection->socket, &connection->buffer, 1, &connection->byteCount, &connection->flags, (OVERLAPPED*)&connection->overlap, NULL);
 
-		case POLYM_EVENT_ASYNC_SEND:
+		case POLYM_EVENT_ASYNC_SEND: // An asynchrounous send has completed
 			// reset the check alive timer because of this activity
 			ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
 
 			message_buffer_array_free(&messageSpace, ((message_buffer*)overlap->eventInfo)->index);
 			continue;
 
-		case POLYM_EVENT_SHUTDOWN:
+		case POLYM_EVENT_SHUTDOWN: // This thread has recieved a shutdown event
 			EnterCriticalSection(&numWorkerThreadsCriticalSection);
 			numWorkerThreads--;
 			LeaveCriticalSection(&numWorkerThreadsCriticalSection);
@@ -322,6 +326,8 @@ DWORD WINAPI eventListener(LPVOID dummy)
 	}
 }
 
+///<summary> Closes the specified number of threads by queueing <c>POLYM_EVENT_SHUTDOWN</c> events. </summary>
+///<returns> Returns the number of threads closed. </returns>
 int closeWorkerThreads(int count)
 {
 	int countReturn = 0;
@@ -332,14 +338,17 @@ int closeWorkerThreads(int count)
 	return countReturn;
 }
 
-POLYM_CONNECTION_INFO* getServiceConnectionInfo(int index)
+///<summary> Gets the info object associated with the specified service ID. </summary>
+POLYM_CONNECTION_INFO* getServiceConnectionInfo(int service_ID)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	POLYM_CONNECTION_INFO *ret = &service_connection_array_get_connection(&serviceConnections, index)->info;
+	POLYM_CONNECTION_INFO *ret = &service_connection_array_get_connection(&serviceConnections, service_ID)->info;
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	return ret;
 }
 
+///<summary> Checks if the given service string is present in any of the connected services. </summary>
+///<returns> Returns 1 on exact match, 0 otherwise. </returns>
 int serviceStringExists(char* string) 
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
@@ -348,6 +357,9 @@ int serviceStringExists(char* string)
 	return ret;
 }
 
+///<summary> Returns an array of pointers to the connection objects for all connected services. </summary>
+///<param name="maxCount"> The maximum number of services to be retrieved. </param>
+///<returns> Returns the number of services fetched </returns>
 int getCurrentServiceConnections(void** OUT_connectionArray, uint32_t maxCount)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
@@ -356,6 +368,9 @@ int getCurrentServiceConnections(void** OUT_connectionArray, uint32_t maxCount)
 	return ret;
 }
 
+///<summary> Returns an array of pointers to the connection objects for all connected peers. </summary>
+///<param name="maxCount"> The maximum number of peers to be retrieved. </param>
+///<returns> Returns the number of peers fetched. </returns>
 int getCurrentPeerConnections(void** OUT_connectionArray, uint32_t maxCount)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
@@ -364,7 +379,8 @@ int getCurrentPeerConnections(void** OUT_connectionArray, uint32_t maxCount)
 	return ret;
 }
 
-int getPeerConnectionAddressString(int peerID, int stringBufferSize, char* OUT_stringBuffer)
+///<summary> Gets the address of a particular peer connection by ID, formatted as as string. </summary>
+int getPeerConnectionAddressString(int peerID, int stringBufferSize, char* out_stringBuffer)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
 	CONNECTION* connection = connection_array_get(&peerConnections, peerID);
@@ -372,7 +388,7 @@ int getPeerConnectionAddressString(int peerID, int stringBufferSize, char* OUT_s
 	switch (connection->addrtype)
 	{
 	case IPPROTO_IPV4:
-		inet_ntop(AF_INET, &connection->address.ipv4.sin_addr, OUT_stringBuffer, stringBufferSize);
+		inet_ntop(AF_INET, &connection->address.ipv4.sin_addr, out_stringBuffer, stringBufferSize);
 	case IPPROTO_IPV6:
 		return -1; // ipv6 unimplemented
 	default:
@@ -380,6 +396,7 @@ int getPeerConnectionAddressString(int peerID, int stringBufferSize, char* OUT_s
 	}
 }
 
+///<summary> Rebuilds the server's combined service string. </summary>
 void rebuildServiceString()
 {
 	CONNECTION *services[65536];
@@ -394,6 +411,9 @@ void rebuildServiceString()
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 }
 
+///<summary> Adds the supplied service to the service list. </summary>
+///<param name="out_connectionPointer"> (OUT) The connection object added to the service list. </param>
+///<returns> The index value of the element added. </return>
 int addNewService(void* connection, void** out_connectionPointer)
 {
 	// TODO: need to fail if we have USHORT_MAX services without any vacancies. needs to return either negative error code or a value within the bounds of a USHORT.
@@ -407,6 +427,8 @@ int addNewService(void* connection, void** out_connectionPointer)
 	return ret;
 }
 
+///<summary> Removes the service from the list as specified by the service ID. </summary>
+///<returns> Integer result code. </returns>
 int32_t removeService(uint16_t serviceID)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
@@ -426,6 +448,9 @@ int32_t removeService(uint16_t serviceID)
 	rebuildServiceString();
 }
 
+///<summary> Adds the supplied peer to the peer list. </summary>
+///<param name="out_connectionPointer"> (OUT) The connection object added to the peer list. </param>
+///<returns> The index value of the element added. </return>
 int addNewPeer(void* connection, void **out_connectionPointer)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
@@ -434,6 +459,8 @@ int addNewPeer(void* connection, void **out_connectionPointer)
 	return ret;
 }
 
+///<summary> Removes the peer from the list as specified by the peer ID. </summary>
+///<returns> Integer result code. </returns>
 int32_t removePeer(uint16_t peerID)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
@@ -451,6 +478,7 @@ int32_t removePeer(uint16_t peerID)
 		return result;
 }
 
+///<summary> Gets the connection object for the specified peer ID. </summary>
 void* getConnectionFromPeerID(uint16_t peerID)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
@@ -459,6 +487,7 @@ void* getConnectionFromPeerID(uint16_t peerID)
 	return ret;
 }
 
+///<summary> Gets the connection object for the specified service ID. </summary>
 void* getConnectionFromServiceID(uint16_t serviceID)
 {
 		EnterCriticalSection(&serviceConnectionsCriticalSection);
@@ -467,13 +496,13 @@ void* getConnectionFromServiceID(uint16_t serviceID)
 		return ret;
 }
 
+///<summary> Gets the connection info object from the given socket reference. </summary>
 POLYM_CONNECTION_INFO* getInfoFromConnection(void *connection)
 {
 	return &((CONNECTION*)connection)->info;
 }
 
-
-
+///<summary> Calculates the difference between two address structures. 0 means equality. </summary>
 int compareAddresses(struct in_addr address1, struct in_addr address2)
 {
 	return address1.S_un.S_addr - address2.S_un.S_addr;
