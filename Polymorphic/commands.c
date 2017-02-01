@@ -45,8 +45,8 @@ int trySockRecv(void *connection, uint8_t* buffer, uint32_t length)
 	else
 	{
 		// send error message and disconnect
-		sendDisconnect(connection, POLYM_PROTO_ERROR_TRANSMISSION_FAIL);
-		return POLYM_PROTO_ERROR_TRANSMISSION_FAIL;
+		sendDisconnect(connection, POLY_PROTO_ERROR_TRANSMISSION_FAIL);
+		return POLY_PROTO_ERROR_TRANSMISSION_FAIL;
 	}
 }
 
@@ -94,7 +94,7 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		//don't connect to a loopback address
 		if (address >= 2130706433 && address <= 2147483646)
 		{
-			sendConnectErrorToService(connection, address, port, protocol, POLYM_PROTO_ERROR_INVALID_ADDRESS);
+			sendConnectErrorToService(connection, address, port, protocol, POLY_PROTO_ERROR_INVALID_ADDRESS);
 			return;
 		}
 
@@ -111,7 +111,7 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		break;
 	case POLYM_MODE_PEER:
 		// peers should not be telling us to connect to other peers. this is an error. disconnect.
-		sendDisconnect(connection, POLYM_PROTO_ERROR_INVALID_COMMAND);
+		sendDisconnect(connection, POLY_PROTO_ERROR_INVALID_COMMAND);
 		return;
 	}
 
@@ -122,7 +122,7 @@ int sendMessageToPeerID(uint16_t peerID, uint8_t *message, uint32_t length)
 	void *connection = getConnectionFromPeerID(peerID);
 
 	if (connection == NULL)
-		return POLYM_PROTO_ERROR_PEER_DOES_NOT_EXIST;
+		return POLY_PROTO_ERROR_PEER_DOES_NOT_EXIST;
 
 	sockSendAsync(connection, message, length);
 	return 0;
@@ -144,7 +144,7 @@ int sendMessageToServiceID(uint16_t serviceID, uint16_t portID, uint8_t* message
 	void *connection = getConnectionFromServiceID(serviceID, portID);
 
 	if (connection == NULL)
-		return POLYM_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
+		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	sockSendAsync(connection, message, length);
 	return 0;

@@ -67,7 +67,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 	// attempt to recieve realm code
 	if (2 != sockRecv(connection, buffer, 2))
 	{
-		sendErrorCode(POLYM_INIT_ERROR_REALM_CODE_FAIL, connection);
+		sendErrorCode(POLY_INIT_ERROR_REALM_CODE_FAIL, connection);
 		return POLYM_MODE_FAILED;
 	}
 
@@ -85,7 +85,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		//attempt to recieve service string size
 		if (2 != sockRecv(connection, buffer, 2))
 		{
-			sendErrorCode(POLYM_INIT_ERROR_SERVICE_STRING_SIZE_FAIL, connection);
+			sendErrorCode(POLY_INIT_ERROR_SERVICE_STRING_SIZE_FAIL, connection);
 			return POLYM_MODE_FAILED;
 		}
 
@@ -93,7 +93,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		int serviceStringSize = getShortFromBuffer(buffer);
 		if (serviceStringSize < 1)
 		{
-			sendErrorCode(POLYM_INIT_ERROR_INVALID_SERVICE_STRING_SIZE, connection);
+			sendErrorCode(POLY_INIT_ERROR_INVALID_SERVICE_STRING_SIZE, connection);
 			return POLYM_MODE_FAILED;
 		}
 		connection_info->mode_info.service.serviceString = malloc(sizeof(uint8_t) * serviceStringSize);
@@ -101,7 +101,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		//get the service string
 		if (serviceStringSize != sockRecv(connection, connection_info->mode_info.service.serviceString, serviceStringSize))
 		{
-			sendErrorCode(POLYM_INIT_ERROR_SERVICE_STRING_FAIL, connection_info);
+			sendErrorCode(POLY_INIT_ERROR_SERVICE_STRING_FAIL, connection_info);
 			return POLYM_MODE_FAILED;
 		}
 
@@ -113,7 +113,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		// TODO: better error handling
 		if (connection_info->mode_info.service.serviceID == -1)
 		{
-			sendErrorCode(POLYM_INIT_ERROR_SERVICE_CREATION_FAIL, connection);
+			sendErrorCode(POLY_INIT_ERROR_SERVICE_CREATION_FAIL, connection);
 			return POLYM_MODE_FAILED;
 		}
 
@@ -165,15 +165,15 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 	void *connection = openNewConnection(ipAddress, _itoa(l4Port, l4PortString, 10), &info, protocol);
 
 	if (connection == NULL)
-		return POLYM_PROTO_ERROR_CONNECTION_FAIL;
+		return POLY_PROTO_ERROR_CONNECTION_FAIL;
 
 	uint8_t buffer[500];
 
 	if (6 != sockRecv(connection, buffer, 6))
 	{
-		sendErrorCode(POLYM_PROTO_ERROR_CONNECTION_FAIL, connection);
+		sendErrorCode(POLY_PROTO_ERROR_CONNECTION_FAIL, connection);
 		removeConnection(info);
-		return POLYM_PROTO_ERROR_CONNECTION_FAIL;
+		return POLY_PROTO_ERROR_CONNECTION_FAIL;
 	}
 
 	uint8_t newlineTerminus = 0;
@@ -182,9 +182,9 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 
 		if (1 != sockRecv(connection, &buffer[x], 1))
 		{
-			sendErrorCode(POLYM_PROTO_ERROR_CONNECTION_FAIL, connection);
+			sendErrorCode(POLY_PROTO_ERROR_CONNECTION_FAIL, connection);
 			removeConnection(info);
-			return POLYM_PROTO_ERROR_CONNECTION_FAIL;
+			return POLY_PROTO_ERROR_CONNECTION_FAIL;
 		}
 
 		if (buffer[x] == '\r')
@@ -212,9 +212,9 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 
 	if (2 != sockRecv(connection, buffer, 2))
 	{
-		sendErrorCode(POLYM_PROTO_ERROR_CONNECTION_FAIL, connection);
+		sendErrorCode(POLY_PROTO_ERROR_CONNECTION_FAIL, connection);
 		removeConnection(info);
-		return POLYM_PROTO_ERROR_CONNECTION_FAIL;
+		return POLY_PROTO_ERROR_CONNECTION_FAIL;
 	}
 
 	initializeNewPeerInfo(info, connection, out_connectionPointer);
