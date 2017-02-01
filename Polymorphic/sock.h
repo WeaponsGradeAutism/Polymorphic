@@ -2,7 +2,7 @@
 
 #include <info_structure.h>
 
-int closeSocketLib(); 
+int closeListenSocket(); 
 int startListenSocket(char* port); 
 
 void insertShortIntoBuffer(uint8_t *buffer, uint16_t unconvertedShort); // Insert the short into the buffer, converting it to network format. 

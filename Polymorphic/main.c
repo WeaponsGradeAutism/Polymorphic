@@ -21,7 +21,7 @@ int main(int argc,
 	(void)getchar();
 
 	printf("Stopping server daemon: ");
-	if (closeSocketLib() == 0)
+	if (closeListenSocket() == 0)
 		printf("OK.\n");
 	else
 		printf("FAILED.\n");

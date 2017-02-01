@@ -50,7 +50,7 @@ int initSocketLib()
 	shutdownOverlap.eventType = POLYM_EVENT_SHUTDOWN;
 }
 
-int closeSocketLib()
+int closeListenSocket()
 {
 	isShutdown = 1;
 	return WSACleanup();
