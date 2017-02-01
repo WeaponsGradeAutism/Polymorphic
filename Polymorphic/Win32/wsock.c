@@ -241,9 +241,6 @@ void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 	case POLYM_MODE_SERVICE:
 		lockConnectionMutex(service_connection_array_get_connection(&serviceConnections, info->mode_info.service.serviceID));
 		return;
-	case POLYM_MODE_SERVICE_AUX:
-		lockConnectionMutex(service_connection_array_get_aux(&serviceConnections, info->mode_info.serviceAux.serviceID, info->mode_info.serviceAux.servicePort));
-		return;
 	case POLYM_MODE_PEER:
 		lockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
 		return;
@@ -264,9 +261,6 @@ void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 	{
 	case POLYM_MODE_SERVICE:
 		unlockConnectionMutex(service_connection_array_get_connection(&serviceConnections, info->mode_info.service.serviceID));
-		return;
-	case POLYM_MODE_SERVICE_AUX:
-		unlockConnectionMutex(service_connection_array_get_aux(&serviceConnections, info->mode_info.serviceAux.serviceID, info->mode_info.serviceAux.servicePort));
 		return;
 	case POLYM_MODE_PEER:
 		unlockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
@@ -432,31 +426,6 @@ int32_t removeService(uint16_t serviceID)
 	rebuildServiceString();
 }
 
-int addNewServiceAux(uint16_t serviceID, void* connection, void** out_connectionPointer)
-{
-	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	int ret = service_connection_array_push_aux(&serviceConnections, serviceID, *(CONNECTION*)connection, (CONNECTION**)out_connectionPointer);
-	LeaveCriticalSection(&serviceConnectionsCriticalSection);
-	return ret;
-}
-
-int32_t removeServiceAux(uint16_t serviceID, uint16_t serviceAuxID)
-{
-	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	CONNECTION* connection = service_connection_array_get_aux(&serviceConnections, serviceID, serviceAuxID);
-
-	if (connection = NULL)
-		return POLYM_ERROR_SERVICE_DOES_NOT_EXIST;
-
-	int result = service_connection_array_delete_aux(&serviceConnections, serviceID, serviceAuxID);
-	LeaveCriticalSection(&serviceConnectionsCriticalSection);
-
-	if (result == 0)
-		return closeConnection(connection);
-	else
-		return result;
-}
-
 int addNewPeer(void* connection, void **out_connectionPointer)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
@@ -482,13 +451,6 @@ int32_t removePeer(uint16_t peerID)
 		return result;
 }
 
-void closeAllServiceAux(uint16_t serviceID)
-{
-	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	// service_connection_array_close_all_aux(&serviceConnections, serviceID); TODO
-	LeaveCriticalSection(&serviceConnectionsCriticalSection);
-}
-
 void* getConnectionFromPeerID(uint16_t peerID)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
@@ -497,22 +459,12 @@ void* getConnectionFromPeerID(uint16_t peerID)
 	return ret;
 }
 
-void* getConnectionFromServiceID(uint16_t serviceID, uint16_t portID)
+void* getConnectionFromServiceID(uint16_t serviceID)
 {
-	if (portID == 0)
-	{
 		EnterCriticalSection(&serviceConnectionsCriticalSection);
 		void *ret = service_connection_array_get_connection(&serviceConnections, serviceID);
 		LeaveCriticalSection(&serviceConnectionsCriticalSection);
 		return ret;
-	}
-	else
-	{
-		EnterCriticalSection(&serviceConnectionsCriticalSection);
-		void *ret = service_connection_array_get_aux(&serviceConnections, serviceID, portID);
-		LeaveCriticalSection(&serviceConnectionsCriticalSection);
-		return ret;
-	}
 }
 
 POLYM_CONNECTION_INFO* getInfoFromConnection(void *connection)

@@ -23,11 +23,8 @@ void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **o
 
 int addNewService(void* connection, void** out_connectionPointer);
 int32_t removeService(uint16_t serviceID);
-int addNewServiceAux(uint16_t serviceID, void* connection, void** out_connectionPointer);
-int32_t removeServiceAux(uint16_t serviceID, uint16_t serviceAuxID);
 int addNewPeer(void* connection, void **out_connectionPointer);
 int32_t removePeer(uint16_t peerID);
-void closeAllServiceAux(uint16_t serviceID);
 int closeUnitializedConnection(void *connection);
 
 const char* intIPtoStringIP(uint32_t ipv4AddressLong, char *OUT_StringIP, int bufferSize);

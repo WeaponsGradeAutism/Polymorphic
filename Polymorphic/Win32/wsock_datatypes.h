@@ -83,7 +83,6 @@ typedef struct {
 	uint32_t members;   // the number of used slots
 	uint32_t capacity;  // total available slots
 	CONNECTION *data;     // array of connections we're storing
-	connection_array *auxConnectionContainers; // array of aux connections containers
 } service_connection_vector;
 
 typedef struct {
@@ -116,12 +115,9 @@ void connection_array_trim(connection_array *vector);
 void service_connection_array_init(service_connection_array *vector);
 int service_connection_array_get_all_connections(service_connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray);
 CONNECTION* service_connection_array_get_connection(service_connection_array *vector, uint32_t index);
-CONNECTION* service_connection_array_get_aux(service_connection_array *vector, uint32_t indexService, uint32_t indexAux);
 int service_connection_array_service_string_exists(service_connection_array *vector, char *string);
 int service_connection_array_push(service_connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer);
 int service_connection_array_delete(service_connection_array *vector, uint32_t index);
-int service_connection_array_push_aux(service_connection_array *vector, int index, CONNECTION connection, CONNECTION **out_connectionPointer);
-int service_connection_array_delete_aux(service_connection_array *vector, uint32_t index, uint32_t indexAux);
 void service_connection_array_trim(service_connection_array *vector);
 
 void message_buffer_array_init(message_buffer_array *vector, int size);

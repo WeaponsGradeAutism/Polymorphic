@@ -19,12 +19,6 @@ typedef struct
 
 typedef struct
 {
-	uint16_t serviceID; // the id # of the service this is running
-	uint16_t servicePort; // the service port # this aux service connection is on
-} POLYM_SERVICE_AUX_INFO;
-
-typedef struct
-{
 	uint16_t peerID; // we'll fill this out later
 } POLYM_PEER_INFO;
 
@@ -57,7 +51,6 @@ typedef struct {
 	{
 		POLYM_SERVICE_INFO service;
 		POLYM_PEER_INFO peer;
-		POLYM_SERVICE_AUX_INFO serviceAux;
 	} mode_info;
 
 	union status // connection type specific status

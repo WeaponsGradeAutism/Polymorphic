@@ -77,11 +77,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 			return POLYM_MODE_FAILED;
 		}
 
-		uint16_t serviceID = getShortFromBuffer(buffer);
-
-		// 0 for new, all else for existing service ID.
-		if (serviceID == 0)
-		{
 			// initialize new service connection
 			connection_info->mode = POLYM_MODE_SERVICE;
 
@@ -141,59 +136,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 			}
 			else
 				return POLYM_MODE_SERVICE;
-		}
-		else
-		{
-
-			// initalize connected peer array
-			int_array_init(&connection_info->mode_status.service.connectedPeers);
-
-			// initialize existing service connection
-			connection_info->mode = POLYM_MODE_SERVICE_AUX;
-
-			// get the info structure for this service
-			POLYM_CONNECTION_INFO* serviceInfo = getServiceConnectionInfo(serviceID);
-
-			// if the acquisition fails, close the connection
-			if (serviceInfo == NULL)
-			{
-				sendErrorCode(POLYM_ERROR_SERVICE_DOES_NOT_EXIST, connection);
-				return POLYM_MODE_FAILED;
-			}
-
-			// recieve the service key
-			if (4 != sockRecv(connection, buffer, 4))
-			{
-				sendErrorCode(POLYM_ERROR_SERVICE_KEY_FAIL, connection);
-				return POLYM_MODE_FAILED;
-			}
-
-			// validate the service key
-			if (0 != strncmp(buffer, serviceInfo->mode_info.service.serviceKey, 4))
-			{
-				sendErrorCode(POLYM_ERROR_SERVICE_KEY_INVALID, connection);
-				return POLYM_MODE_FAILED;
-			}
-
-			// set the service ID and port info
-			connection_info->mode_info.serviceAux.serviceID = serviceID;
-			connection_info->mode_info.serviceAux.servicePort = addNewServiceAux(serviceID, connection, out_connectionPointer);
-
-			// construct the last send buffer to send
-			buffer[0] = 0;
-			buffer[1] = 0; // set the first two bytes (result code) to 0 to indicate success
-			insertShortIntoBuffer(&buffer[2], (uint16_t)connection_info->mode_info.serviceAux.servicePort); // set 3rd and 4th bytes to the service port
-
-																										   // send result code and port number
-			if (4 != sockSend(connection, buffer, 4))
-			{
-				// if for some reason this fails, we'll need to dispose of the connection
-				removeServiceAux(serviceID, connection_info->mode_info.serviceAux.servicePort);
-				return POLYM_MODE_SERVICE_AUX; // do not return fail so that the connection isn't closed twice
-			}
-			else
-				return POLYM_MODE_SERVICE_AUX;
-		}
 	}
 	else
 	{
@@ -289,14 +231,8 @@ void cleanupConnection(POLYM_CONNECTION_INFO *connection_info)
 	{
 
 	case POLYM_MODE_SERVICE:
-		// close a service control connection and all its auxiliary connections
-		closeAllServiceAux(connection_info->mode_info.service.serviceID);
+		// close a service control connection
 		removeService(connection_info->mode_info.service.serviceID);
-		break;
-
-	case POLYM_MODE_SERVICE_AUX:
-		// close a service auxiliary connection
-		removeServiceAux(connection_info->mode_info.serviceAux.serviceID, connection_info->mode_info.serviceAux.servicePort);
 		break;
 
 	case POLYM_MODE_PEER:

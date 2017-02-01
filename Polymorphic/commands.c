@@ -77,7 +77,6 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	switch (connection_info->mode)
 	{
 	case POLYM_MODE_SERVICE:
-	service:
 
 		// recieve the connect info
 		if (0 != trySockRecv(connection, buffer, 8))
@@ -110,9 +109,6 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		if (0 != connectResult)
 			sendConnectErrorToService(connection, address, port, protocol, connectResult);
 		break;
-	case POLYM_MODE_SERVICE_AUX:
-		// same as service
-		goto service;
 	case POLYM_MODE_PEER:
 		// peers should not be telling us to connect to other peers. this is an error. disconnect.
 		sendDisconnect(connection, POLYM_ERROR_INVALID_COMMAND);
@@ -208,16 +204,6 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		sendPeerMessage(connection, peerToPeerMessage);
 
 		break;
-	}
-
-	case POLYM_MODE_SERVICE_AUX:
-	{
-		uint8_t peerToPeerMessage[65536 + 10]; // the max possible size of a peer->peer message command
-
-		insertShortIntoBuffer(peerToPeerMessage, connection_info->mode_info.serviceAux.serviceID);
-		insertShortIntoBuffer(&peerToPeerMessage[2], connection_info->mode_info.serviceAux.serviceID);
-
-		sendPeerMessage(connection, peerToPeerMessage);
 	}
 
 	case POLYM_MODE_PEER:

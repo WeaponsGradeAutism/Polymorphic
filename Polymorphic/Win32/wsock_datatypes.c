@@ -243,7 +243,6 @@ void service_connection_array_init(service_connection_array *vector)
 	// allocate memory for vector->data
 	vector->connections.data = malloc(sizeof(CONNECTION) * vector->connections.capacity);
 	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
-	vector->connections.auxConnectionContainers = malloc(sizeof(connection_array) * vector->vacancies.capacity);
 
 	// need to set socket to 0 because it's used to indicate empty elements
 	for (int x = 0; x < VECTOR_INITIAL_CAPACITY; x++)
@@ -264,7 +263,6 @@ void service_connection_array_init_capacity(service_connection_array *vector, ui
 	// allocate memory for vector->data
 	vector->connections.data = malloc(sizeof(CONNECTION) * vector->connections.capacity);
 	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
-	vector->connections.auxConnectionContainers = malloc(sizeof(connection_array) * vector->vacancies.capacity);
 
 	// need to set socket to 0 for each element because it's used to indicate empty elements
 	for (unsigned int x = 0; x < capacity; x++)
@@ -279,7 +277,6 @@ void service_connection_array_double_capacity_if_full(service_connection_array *
 	{
 		vector->connections.capacity = VECTOR_INITIAL_CAPACITY;
 		vector->connections.data = malloc(sizeof(CONNECTION) * vector->connections.capacity);
-		vector->connections.auxConnectionContainers = malloc(sizeof(connection_array) * vector->connections.capacity);
 
 		// need to set socket to 0 for each new element because it's used to indicate empty elements
 		for (int x = 0; x < VECTOR_INITIAL_CAPACITY; x++)
@@ -292,7 +289,6 @@ void service_connection_array_double_capacity_if_full(service_connection_array *
 		int oldCapacity = vector->connections.capacity;
 		vector->connections.capacity += VECTOR_INITIAL_CAPACITY;
 		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION) * vector->connections.capacity);
-		vector->connections.auxConnectionContainers = realloc(vector->connections.data, sizeof(connection_array) * vector->connections.capacity);
 
 		// need to set socket to 0 for each new element because it's used to indicate empty elements
 		for (unsigned int x = oldCapacity; x < vector->connections.capacity; x++)
@@ -327,7 +323,6 @@ int service_connection_array_append(service_connection_array *vector, CONNECTION
 	vector->connections.members++;
 	vector->connections.data[index] = connection;
 	*out_connectionPointer = &vector->connections.data[index];
-	connection_array_init(&vector->connections.auxConnectionContainers[index]);
 	return index;
 }
 
@@ -346,7 +341,6 @@ int service_connection_array_push(service_connection_array *vector, CONNECTION c
 		int index = service_connection_array_pop_vacancy(vector);
 		vector->connections.data[index] = connection;
 		*out_connectionPointer = &vector->connections.data[index];
-		connection_array_init(&vector->connections.auxConnectionContainers[index]);
 		vector->connections.members++;
 		return index;
 	}
@@ -354,16 +348,6 @@ int service_connection_array_push(service_connection_array *vector, CONNECTION c
 	{
 		return service_connection_array_append(vector, connection, out_connectionPointer);
 	}
-}
-
-int service_connection_array_push_aux(service_connection_array *vector, int index, CONNECTION connection, CONNECTION **out_connectionPointer)
-{
-	connection_array *auxconnList = &vector->connections.auxConnectionContainers[index];
-
-	if (auxconnList->connections.members == 65535)
-		return ARRAY_IS_FULL;
-
-	return connection_array_push(auxconnList, connection, out_connectionPointer);
 }
 
 int service_connection_array_element_exists(service_connection_array *vector, uint32_t index)
@@ -379,10 +363,6 @@ int service_connection_array_delete(service_connection_array *vector, uint32_t i
 	if (index >= vector->connections.size || index < 0 || vector->connections.data[index].socket == 0)
 		return VECTOR_INVALID_ARGUMENT;
 
-	// all aux connections need to be freed before the connection can be deleted
-	if (ARRAY_NOT_EMPTY == connection_array_free_internals(&vector->connections.auxConnectionContainers[index]))
-		return ARRAY_NOT_EMPTY;
-
 	service_connection_array_double_vacancy_capacity_if_full(vector);
 	int_vector_append(&vector->vacancies, index);
 	vector->connections.data[index].socket = 0;
@@ -391,12 +371,6 @@ int service_connection_array_delete(service_connection_array *vector, uint32_t i
 	return 0;
 
 	//ENHANCE: deleting the last element will cause the array size to shrink, and search the vancancy array for vancancies that can be release to shrink the array
-}
-
-int service_connection_array_delete_aux(service_connection_array *vector, uint32_t index, uint32_t indexAux)
-{
-	return connection_array_delete(&vector->connections.auxConnectionContainers[index], indexAux);
-
 }
 
 CONNECTION * service_connection_array_get_connection(service_connection_array *vector, uint32_t index) 
@@ -429,22 +403,6 @@ int service_connection_array_get_all_connections(service_connection_array *vecto
 	return currentIndex;
 }
 
-CONNECTION * service_connection_array_get_aux(service_connection_array *vector, uint32_t indexService, uint32_t indexAux) 
-{
-	if (indexService >= vector->connections.size || indexService < 0)
-		return NULL;
-
-	return connection_array_get(&vector->connections.auxConnectionContainers[indexService], indexAux);
-}
-
-connection_array * service_connection_array_get_auxlist(service_connection_array *vector, uint32_t index) {
-	if (index >= vector->connections.size || index < 0)
-		return NULL;
-
-	return &vector->connections.auxConnectionContainers[index];
-}
-
-
 int service_connection_array_service_string_exists(service_connection_array *vector, char *string)
 {
 	for (unsigned int x = 0; x < vector->connections.size; x++)
@@ -463,15 +421,12 @@ void service_connection_array_trim(service_connection_array *vector) {
 		//if there are no elements, free the memory and create a null pointer
 		free(vector->connections.data);
 		vector->connections.data = NULL;
-		free(vector->connections.auxConnectionContainers);
-		vector->connections.auxConnectionContainers = NULL;
 		vector->connections.capacity = 0;
 	}
 	else
 	{
 		//size the memory allocation down to its size
 		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION) * vector->connections.size);
-		vector->connections.auxConnectionContainers = realloc(vector->connections.data, sizeof(connection_array) * vector->connections.size);
 		vector->connections.capacity = vector->connections.size;
 	}
 
@@ -499,7 +454,6 @@ int service_connection_array_free(service_connection_array *vector) {
 
 	free(vector->connections.data);
 	free(vector->vacancies.data);
-	free(vector->connections.auxConnectionContainers);
 	free(vector);
 
 	return 0;

@@ -75,18 +75,6 @@ Greets with message "POLY v" with any number of arbitrary bytes afterward. Termi
 2-byte realm (0 for service, anything else is peer.)
 (if service)
 2-byte service ID (0 for new, anything else is a new connection to an existing service)
-(if new)
-2-byte service string size (non-zero)
-X-byte service string
--RETURNS-
-2-byte result code (0 if pass, anything else if fail)
-(if pass)
-2-byte service ID
-4-byte service key
-(end if pass)
----------
-(end if new)
-(if existing)
 4-byte service key
 -RETURNS-
 2-byte result code (0 if pass, anything else if fail)
@@ -94,7 +82,6 @@ X-byte service string
 2-byte aux service port
 (end if pass)
 ---------
-(end if existing)
 (end if service)
 (if peer)
 -RETURNS- 
