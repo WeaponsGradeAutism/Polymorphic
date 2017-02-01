@@ -38,9 +38,9 @@ void initializeNewPeerInfo(POLYM_CONNECTION_INFO *connection_info, void *connect
 	connection_info->mode_info.peer.peerID = addNewPeer(connection, out_connectionPointer);
 }
 
-///<summary> Completely initializes a new POLY connection that has been recieved.</summary>
+///<summary> Completely initializes a new POLY connection that has been recieved. Uses synchronous reads and sends. </summary>
 ///<param name='connection'> Connection socket for the incoming connection. </param>
-///<param name='connection_info'> The connection info object associated with this connection</param>
+///<param name='connection_info'> The connection info object associated with this connection. </param>
 ///<param name='out_connectionPointer'> (OUT) The connection object for the newly initialized connection. </param>
 ///<returns> Error code on failure, connection mode on success. <returns>
 int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connection_info, void** out_connectionPointer)
@@ -152,6 +152,12 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 	}
 }
 
+///<summary> Completely initializes a new outbound POLY connection. Uses synchronous reads and sends. </summary>
+///<param name='ipAddress'> The IP address string to connect to. </param>
+///<param name='l4Port'> The transport layer port to connection to. </param>
+///<param name='protocol'> The protocol the connection will use. </param>
+///<param name='out_connectionPointer'> (OUT) The connection object for the newly initialized connection. </param>
+///<returns> Error code on failure, result code from remote server on success. <returns>
 uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t protocol, void **out_connectionPointer)
 {
 	POLYM_CONNECTION_INFO *info;
@@ -166,7 +172,7 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 	if (6 != sockRecv(connection, buffer, 6))
 	{
 		sendErrorCode(POLYM_ERROR_CONNECTION_FAIL, connection);
-		cleanupConnection(info);
+		removeConnection(info);
 		return POLYM_ERROR_CONNECTION_FAIL;
 	}
 
@@ -177,7 +183,7 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 		if (1 != sockRecv(connection, &buffer[x], 1))
 		{
 			sendErrorCode(POLYM_ERROR_CONNECTION_FAIL, connection);
-			cleanupConnection(info);
+			removeConnection(info);
 			return POLYM_ERROR_CONNECTION_FAIL;
 		}
 
@@ -207,19 +213,20 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 	if (2 != sockRecv(connection, buffer, 2))
 	{
 		sendErrorCode(POLYM_ERROR_CONNECTION_FAIL, connection);
-		cleanupConnection(info);
+		removeConnection(info);
 		return POLYM_ERROR_CONNECTION_FAIL;
 	}
 
 	initializeNewPeerInfo(info, connection, out_connectionPointer);
 
-	// TODO: send service update request and update the database
+	// TODO: send service update request
 
-	return getShortFromBuffer(buffer);
+	return getShortFromBuffer(buffer); //return result code recieved from remote server
 
 }
 
-void cleanupConnection(POLYM_CONNECTION_INFO *connection_info)
+///<summary> Remove the supplied service from the connection list. </summary>
+void removeConnection(POLYM_CONNECTION_INFO *connection_info)
 {
 	switch (connection_info->mode)
 	{

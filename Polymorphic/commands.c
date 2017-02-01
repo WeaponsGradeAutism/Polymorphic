@@ -27,13 +27,13 @@ int sendDisconnect(void *connection, uint16_t disconnectCode)
 	if (4 == sockSend(connection, buffer, 4)) // attempt to send the command
 	{
 		POLYM_CONNECTION_INFO *connection_info = getInfoFromConnection(connection);
-		cleanupConnection(connection_info); // if successful, cleanup the connection and return no error
+		removeConnection(connection_info); // if successful, cleanup the connection and return no error
 		return 0;
 	}
 	else
 	{
 		POLYM_CONNECTION_INFO *connection_info = getInfoFromConnection(connection);
-		cleanupConnection(connection_info); // if unsuccessful, cleanup the connection and return NOT_GRACEFUL error
+		removeConnection(connection_info); // if unsuccessful, cleanup the connection and return NOT_GRACEFUL error
 		return POLYM_ERROR_NOT_GRACEFUL;
 	}
 }
