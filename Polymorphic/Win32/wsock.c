@@ -641,6 +641,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 	return 0;
 }
 
+///<summary> Begin a POLY server on the supplied port. </summary>
 int startListenSocket(char* port) 
 {
 	initSocketLib();
