@@ -123,13 +123,13 @@ int closeConnection(CONNECTION *connection)
 	closesocket(connection->socket);
 	switch (connection->protocol)
 	{
-	case POLYM_PROTO_TCP:
+	case POLY_PROTO_TCP:
 		DeleteTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, INVALID_HANDLE_VALUE);
 		break;
 	}
 	switch (connection->info.mode)
 	{
-	case POLYM_MODE_SERVICE:
+	case POLY_MODE_SERVICE:
 		free(connection->info.mode_info.service.serviceString);
 		break;
 	}
@@ -172,7 +172,7 @@ int sockSend(void* connection, uint8_t *buffer, uint32_t length)
 	CONNECTION* connPointer = ((CONNECTION*)connection);
 	switch (connPointer->protocol)
 	{
-	case POLYM_PROTO_TCP:
+	case POLY_PROTO_TCP:
 		return tcpSend(connPointer->socket, buffer, length, 0);
 		break;
 	}
@@ -202,7 +202,7 @@ int sockSendAsync(void* connection, uint8_t *buffer, int length)
 
 	switch ( ((CONNECTION*)connection)->protocol )
 	{
-	case POLYM_PROTO_TCP:
+	case POLY_PROTO_TCP:
 		return tcpSendAsync( ((CONNECTION*)connection)->socket, &allocation->wsabuf, 0, (OVERLAPPED*)&allocation->overlap );
 		break;
 	}
@@ -215,7 +215,7 @@ int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
 
 	switch (connPointer->protocol)
 	{
-	case POLYM_PROTO_TCP:
+	case POLY_PROTO_TCP:
 		return tcpRecv(connPointer->socket, buffer, length, MSG_WAITALL);
 		break;
 	}
@@ -241,10 +241,10 @@ void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 {
 	switch (info->mode)
 	{
-	case POLYM_MODE_SERVICE:
+	case POLY_MODE_SERVICE:
 		lockConnectionMutex(service_connection_array_get_connection(&serviceConnections, info->mode_info.service.serviceID));
 		return;
-	case POLYM_MODE_PEER:
+	case POLY_MODE_PEER:
 		lockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
 		return;
 	default:
@@ -263,10 +263,10 @@ void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 {
 	switch (info->mode)
 	{
-	case POLYM_MODE_SERVICE:
+	case POLY_MODE_SERVICE:
 		unlockConnectionMutex(service_connection_array_get_connection(&serviceConnections, info->mode_info.service.serviceID));
 		return;
-	case POLYM_MODE_PEER:
+	case POLY_MODE_PEER:
 		unlockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
 		return;
 	default:
@@ -536,8 +536,8 @@ void initializeNewTCPConnection(CONNECTION *connection)
 	connection->overlap.hEvent = NULL;
 	connection->byteCount = 0;
 	connection->flags = MSG_WAITALL;
-	connection->info.mode = POLYM_MODE_UNINIT;
-	connection->protocol = POLYM_PROTO_TCP;
+	connection->info.mode = POLY_MODE_UNINIT;
+	connection->protocol = POLY_PROTO_TCP;
 	connection->addrtype = IPPROTO_IPV4;
 	InitializeCriticalSection(connection->connectionMutex);
 }
@@ -600,7 +600,7 @@ void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO 
 	}
 
 	initializeNewTCPConnection(&connection);
-	connection.info.mode = POLYM_MODE_PEER;
+	connection.info.mode = POLY_MODE_PEER;
 
 	*out_connectionInfo = &connection.info;
 
@@ -613,7 +613,7 @@ void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **o
 {
 	switch (protocol)
 	{
-	case POLYM_PROTO_TCP:
+	case POLY_PROTO_TCP:
 		return openNewTCPConnection(ipAddress, l4Port, out_connectionInfo);
 	}
 	return NULL;
@@ -653,7 +653,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 
 			// OPTI: initializing connections may need to become multithreaded.
 			CONNECTION *newConnectionPointer;
-			if (POLYM_MODE_FAILED == initializeIncomingConnection(&connection, &connection.info, &newConnectionPointer))
+			if (POLY_MODE_FAILED == initializeIncomingConnection(&connection, &connection.info, &newConnectionPointer))
 			{
 				printf("CONNECTION FAILED.\n");
 				closeConnection(&connection);

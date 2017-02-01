@@ -45,7 +45,7 @@ typedef struct
 
 typedef struct {
 	
-	uint8_t mode; // is this socket connected to a local service or a peer? POLYM_MODE_SERVICE or POLYM_MODE_PEER
+	uint8_t mode; // is this socket connected to a local service or a peer? POLY_MODE_SERVICE or POLY_MODE_PEER
 
 	union info // connection type specific information
 	{

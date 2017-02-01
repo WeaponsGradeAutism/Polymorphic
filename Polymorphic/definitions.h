@@ -1,17 +1,17 @@
 #pragma once
 
 //poly protocols
-#define POLYM_PROTO_TCP 0
-#define POLYM_PROTO_UDP 1
-#define POLYM_PROTO_HTTP 2
-#define POLYM_PROTO_HTTPS 3
-#define POLYM_PROTO_SMTP 4
+#define POLY_PROTO_TCP 0
+#define POLY_PROTO_UDP 1
+#define POLY_PROTO_HTTP 2
+#define POLY_PROTO_HTTPS 3
+#define POLY_PROTO_SMTP 4
 
 //poly connection modes
-#define POLYM_MODE_UNINIT -1
-#define POLYM_MODE_FAILED 0
-#define POLYM_MODE_SERVICE 1
-#define POLYM_MODE_PEER 2
+#define POLY_MODE_UNINIT -1
+#define POLY_MODE_FAILED 0
+#define POLY_MODE_SERVICE 1
+#define POLY_MODE_PEER 2
 
 // internal error codes
 #define POLYM_ERROR_NOT_GRACEFUL 1
