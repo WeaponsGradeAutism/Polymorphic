@@ -23,6 +23,8 @@ connection_array peerConnections; // stores peer connections by ID
 CRITICAL_SECTION peerConnectionsCriticalSection; // sync object
 service_connection_array serviceConnections; // stores main service connections by ID
 CRITICAL_SECTION serviceConnectionsCriticalSection; // sync object
+message_buffer_array messageSpace; // stores main service connections by ID
+CRITICAL_SECTION messageSpaceCriticalSection; // sync object
 char serviceString[65536]; // stores the services string for this peer
 CRITICAL_SECTION serviceStringCriticalSection; // sync object
 int numWorkerThreads = 0; // number of worker threads currently active
@@ -183,22 +185,25 @@ int tcpSendAsync(SOCKET socket, WSABUF *wsabuffer, int32_t flags, OVERLAPPED *ov
 	return WSASend((SOCKET)socket, wsabuffer, 1, NULL, 0, (OVERLAPPED*)overlap, NULL);
 }
 
-int sockSendAsync(void* connection, uint8_t *buffer, uint32_t length)
+int sockSendAsync(void* connection, uint8_t *buffer, int length)
 {
-	CONNECTION* connPointer = ((CONNECTION*)connection);
 
-	WSABUF *wsabuffer = malloc(sizeof(WSABUF));
-	wsabuffer->buf = buffer;
-	wsabuffer->len = length;
-	POLYM_OVERLAPPED *overlap = malloc(sizeof(POLYM_OVERLAPPED));
-	overlap->eventType = POLYM_EVENT_ASYNC_SEND;
-	overlap->eventInfo = wsabuffer;
-	initializeOverlap(overlap);
+	message_buffer *allocation = message_buffer_array_allocate(&messageSpace, length);
 
-	switch (connPointer->protocol)
+	// copy buffer to space and set length
+	allocation->wsabuf.buf = allocation->buf;
+	memcpy(allocation->buf, buffer, length);
+	allocation->wsabuf.len = length;
+
+	// create the overlapped info for the event 
+	allocation->overlap.eventType = POLYM_EVENT_ASYNC_SEND;
+	allocation->overlap.eventInfo = &allocation;
+	initializeOverlap(&allocation->overlap);
+
+	switch ( ((CONNECTION*)connection)->protocol )
 	{
 	case POLYM_PROTO_TCP:
-		return tcpSendAsync(connPointer->socket, wsabuffer, 0, (OVERLAPPED*)overlap);
+		return tcpSendAsync( ((CONNECTION*)connection)->socket, &allocation->wsabuf, 0, (OVERLAPPED*)&allocation->overlap );
 		break;
 	}
 	return -1;
@@ -307,9 +312,7 @@ DWORD WINAPI eventListener(LPVOID dummy)
 			// reset the check alive timer because of this activity
 			ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
 
-			free(((WSABUF*)overlap->eventInfo)->buf); // free the buffer
-			free((WSABUF*)overlap->eventInfo); // free the WSABUF object
-			free(overlap); // free the OVERLAPPED object
+			message_buffer_array_free(&messageSpace, ((message_buffer*)overlap->eventInfo)->index);
 			continue;
 
 		case POLYM_EVENT_SHUTDOWN:
@@ -320,7 +323,7 @@ DWORD WINAPI eventListener(LPVOID dummy)
 			return 0;
 
 		default:
-			break; // TODO: critical error log and exit
+			ExitThread(0); // TODO: critical error log and exit
 		}
 	}
 }
@@ -694,6 +697,7 @@ int startListenSocket(char* port)
 	InitializeCriticalSection(&peerConnectionsCriticalSection);
 	InitializeCriticalSection(&serviceConnectionsCriticalSection);
 	InitializeCriticalSection(&serviceStringCriticalSection);
+	InitializeCriticalSection(&messageSpaceCriticalSection);
 	InitializeCriticalSection(&numWorkerThreadsCriticalSection);
 
 	struct addrinfo *result = NULL, *ptr = NULL, hints;
@@ -702,6 +706,7 @@ int startListenSocket(char* port)
 
 	service_connection_array_init(&serviceConnections);
 	connection_array_init(&peerConnections);
+	message_buffer_array_init(&messageSpace, 100);
 
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;

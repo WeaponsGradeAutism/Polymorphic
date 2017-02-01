@@ -17,7 +17,7 @@ uint32_t getLongFromBufferNC(uint8_t* buffer);
 
 int sockRecv(void* connection, uint8_t *buffer, uint32_t length);
 int sockSend(void* connection, uint8_t *buffer, uint32_t length);
-int sockSendAsync(void* connection, uint8_t *buffer, uint32_t length);
+int sockSendAsync(void* connection, uint8_t *buffer, int length);
 
 void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **out_connectionInfo, uint8_t protocol);
 

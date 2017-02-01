@@ -138,7 +138,6 @@
   <ItemGroup>
     <ClCompile Include="commands.c" />
     <ClCompile Include="connections.c" />
-    <ClCompile Include="database.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="vector.c" />
     <ClCompile Include="Win32\wsock.c" />
@@ -146,7 +145,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="connections.h" />
-    <ClInclude Include="database.h" />
     <ClInclude Include="commands.h" />
     <ClInclude Include="definitions.h" />
     <ClInclude Include="info_structure.h" />

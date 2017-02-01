@@ -1,4 +1,5 @@
 #include <Win32/wsock_datatypes.h>
+#include <allocation.h>
 
 //---------------------------------------------------------------------------------------------------------------------------------------------
 //CONNECTION self-filling array
@@ -54,7 +55,7 @@ void connection_array_double_capacity_if_full(connection_array *vector)
 	if (vector->connections.size >= vector->connections.capacity) {
 		// double vector->capacity and resize the allocated memory accordingly
 		int oldCapacity = vector->connections.capacity;
-		vector->connections.capacity *= 2;
+		vector->connections.capacity += VECTOR_INITIAL_CAPACITY;
 		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION) * vector->connections.capacity);
 
 		// need to set socket to 0 because it's used to indicate empty elements
@@ -74,7 +75,7 @@ void connection_array_double_vacancy_capacity_if_full(connection_array *vector)
 	}
 	if (vector->vacancies.size >= vector->vacancies.capacity) {
 		// double vector->capacity and resize the allocated memory accordingly
-		vector->vacancies.capacity *= 2;
+		vector->vacancies.capacity += VECTOR_INITIAL_CAPACITY;
 		vector->vacancies.data = realloc(vector->vacancies.data, sizeof(uint32_t) * vector->vacancies.capacity);
 	}
 }
@@ -290,7 +291,7 @@ void service_connection_array_double_capacity_if_full(service_connection_array *
 	if (vector->connections.size >= vector->connections.capacity) {
 		// double vector->capacity and resize the allocated memory accordingly
 		int oldCapacity = vector->connections.capacity;
-		vector->connections.capacity *= 2;
+		vector->connections.capacity += VECTOR_INITIAL_CAPACITY;
 		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION) * vector->connections.capacity);
 		vector->connections.auxConnectionContainers = realloc(vector->connections.data, sizeof(connection_array) * vector->connections.capacity);
 
@@ -311,7 +312,7 @@ void service_connection_array_double_vacancy_capacity_if_full(service_connection
 	}
 	if (vector->vacancies.size >= vector->vacancies.capacity) {
 		// double vector->capacity and resize the allocated memory accordingly
-		vector->vacancies.capacity *= 2;
+		vector->vacancies.capacity += VECTOR_INITIAL_CAPACITY;
 		vector->vacancies.data = realloc(vector->vacancies.data, sizeof(uint32_t) * vector->vacancies.capacity);
 	}
 }
@@ -507,3 +508,48 @@ int service_connection_array_free(service_connection_array *vector) {
 
 //
 //---------------------------------------------------------------------------------------------------------------------------------------------
+// message buffer away
+//---------------------------------------------------------------------------------------------------------------------------------------------
+
+void message_buffer_array_init(message_buffer_array *vector, int size)
+{
+	vector->messages = allocateMemory(sizeof(message_buffer) * size);
+	vector->arraySize = size;
+	vector->messageCount = 0;
+	vector->nextIndex = 0;
+}
+
+// returns a pointer to a buffer that can be used to store data, and marks it as being in use by assigning it a length
+message_buffer* message_buffer_array_allocate(message_buffer_array *vector, int length)
+{
+	for (int x = vector->nextIndex; x < vector->arraySize; x++)
+	{
+		if (vector->messages[x].index < 0) // empty slot is denoted by an index of < 0
+		{
+			vector->messages[x].index = x;
+			vector->arraySize++;
+			vector->nextIndex++;
+			return &vector->messages[x];
+		}
+	}
+
+	// no open spaces found, expand the buffer for some more messages
+	message_buffer_array_extend(vector, 10);
+	int index = vector->nextIndex;
+	vector->messages[index].index = vector->nextIndex;
+	vector->arraySize++;
+	vector->nextIndex++;
+	return &vector->messages[index];
+}
+
+// marks a buffer as free once it's finished being used
+void message_buffer_array_free(message_buffer_array *vector, int index)
+{
+	vector->messages[index].index = -1;
+	vector->arraySize--;
+}
+
+void message_buffer_array_free_container(message_buffer_array *vector)
+{
+	free(vector->messages);
+}

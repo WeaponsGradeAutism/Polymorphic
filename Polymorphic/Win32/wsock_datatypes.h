@@ -91,19 +91,40 @@ typedef struct {
 	int_vector vacancies;
 } service_connection_array;
 
+typedef struct {
+	WSABUF wsabuf;
+	POLYM_OVERLAPPED overlap;
+	uint8_t buf[65546]; // largest possible POLY message
+	int index; // this message's position in the message array, set to -1 if currently not in use
+} message_buffer;
+
+typedef struct {
+	message_buffer *messages; // pointer to a message_buffer array
+	int arraySize; // the current size of the message array
+	int messageCount; // the number of messages currently on the array
+	int nextIndex; // the next index to be filled in the array
+} message_buffer_array;
+
 void connection_array_init(connection_array *vector);
 void connection_array_init_capacity(connection_array *vector, uint32_t capacity);
 int connection_array_get_all(connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray);
-CONNECTION * connection_array_get(connection_array *vector, uint32_t index);
+CONNECTION* connection_array_get(connection_array *vector, uint32_t index);
 int connection_array_push(connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer);
 int connection_array_delete(connection_array *vector, uint32_t index);
+void connection_array_trim(connection_array *vector);
 
 void service_connection_array_init(service_connection_array *vector);
 int service_connection_array_get_all_connections(service_connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray);
-CONNECTION * service_connection_array_get_connection(service_connection_array *vector, uint32_t index);
-CONNECTION * service_connection_array_get_aux(service_connection_array *vector, uint32_t indexService, uint32_t indexAux);
+CONNECTION* service_connection_array_get_connection(service_connection_array *vector, uint32_t index);
+CONNECTION* service_connection_array_get_aux(service_connection_array *vector, uint32_t indexService, uint32_t indexAux);
 int service_connection_array_service_string_exists(service_connection_array *vector, char *string);
 int service_connection_array_push(service_connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer);
 int service_connection_array_delete(service_connection_array *vector, uint32_t index);
 int service_connection_array_push_aux(service_connection_array *vector, int index, CONNECTION connection, CONNECTION **out_connectionPointer);
 int service_connection_array_delete_aux(service_connection_array *vector, uint32_t index, uint32_t indexAux);
+void service_connection_array_trim(service_connection_array *vector);
+
+void message_buffer_array_init(message_buffer_array *vector, int size);
+message_buffer* message_buffer_array_allocate(message_buffer_array *vector, int length);
+void message_buffer_array_free(message_buffer_array *vector, int index);
+void message_buffer_array_free_container(message_buffer_array *vector);
