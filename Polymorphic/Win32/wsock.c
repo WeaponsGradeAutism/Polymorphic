@@ -222,11 +222,11 @@ int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
 	return -1;
 }
 
-const char* intIPtoStringIP(uint32_t ipv4AddressLong, char *OUT_StringIP, int bufferSize)
+const char* intIPtoStringIP(uint32_t ipv4AddressLong, char *out_StringIP, int bufferSize)
 {
 	struct in_addr addressOjbect;
 	addressOjbect.S_un.S_addr = ipv4AddressLong;
-	return inet_ntop(AF_INET, &addressOjbect, OUT_StringIP, bufferSize);
+	return inet_ntop(AF_INET, &addressOjbect, out_StringIP, bufferSize);
 }
 
 void lockConnectionMutex(CONNECTION *connection)
