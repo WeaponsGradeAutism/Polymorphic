@@ -67,7 +67,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 	// attempt to recieve realm code
 	if (2 != sockRecv(connection, buffer, 2))
 	{
-		sendErrorCode(POLY_INIT_ERROR_REALM_CODE_FAIL, connection);
 		return POLY_MODE_FAILED;
 	}
 
@@ -85,7 +84,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		//attempt to recieve service string size
 		if (2 != sockRecv(connection, buffer, 2))
 		{
-			sendErrorCode(POLY_INIT_ERROR_SERVICE_STRING_SIZE_FAIL, connection);
 			return POLY_MODE_FAILED;
 		}
 
@@ -93,7 +91,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		int serviceStringSize = getShortFromBuffer(buffer);
 		if (serviceStringSize < 1)
 		{
-			sendErrorCode(POLY_INIT_ERROR_INVALID_SERVICE_STRING_SIZE, connection);
 			return POLY_MODE_FAILED;
 		}
 		connection_info->mode_info.service.serviceString = malloc(sizeof(uint8_t) * serviceStringSize);
@@ -101,7 +98,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		//get the service string
 		if (serviceStringSize != sockRecv(connection, connection_info->mode_info.service.serviceString, serviceStringSize))
 		{
-			sendErrorCode(POLY_INIT_ERROR_SERVICE_STRING_FAIL, connection_info);
 			return POLY_MODE_FAILED;
 		}
 
@@ -113,7 +109,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		// TODO: better error handling
 		if (connection_info->mode_info.service.serviceID == -1)
 		{
-			sendErrorCode(POLY_INIT_ERROR_SERVICE_CREATION_FAIL, connection);
 			return POLY_MODE_FAILED;
 		}
 

@@ -639,7 +639,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 		{
 			// send error code for full
 			char buffer[2];
-			insertShortIntoBuffer(buffer, POLY_INIT_ERROR_MAX_CONNECTIONS);
+			insertShortIntoBuffer(buffer, POLY_PROTO_ERROR_MAX_CONNECTIONS);
 			send(connection.socket, buffer, 2, 0);
 			shutdown(connection.socket, SD_BOTH);
 			closesocket(connection.socket);
