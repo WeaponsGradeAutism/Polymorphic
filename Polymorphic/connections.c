@@ -245,37 +245,3 @@ void removeConnection(POLYM_CONNECTION_INFO *connection_info)
 		break;
 	}
 }
-
-int connectServiceToPeer(POLYM_CONNECTION_INFO *peerInfo, POLYM_CONNECTION_INFO *serviceInfo)
-{
-	//check to ensure that there is room for this new connection, fail if not
-	if (POLYM_PEER_MAX_SERVICE_CONNECTIONS <= int_array_count(&peerInfo->mode_status.peer.connectedServices))
-		return POLYM_ERROR_PEER_MAX_SERVICE_CONNECTIONS; // this peer's service connections is full
-	if (POLYM_SERVICE_MAX_PEER_CONNECTIONS <= int_array_count(&serviceInfo->mode_status.service.connectedPeers))
-		return POLYM_ERROR_SERVICE_MAX_PEER_CONNECTIONS; // this services's peer connections is full
-
-	int_array_push(&serviceInfo->mode_status.service.connectedPeers, serviceInfo->mode_info.service.serviceID);
-
-	lockConnectionMutexByInfo(peerInfo);
-	int_array_push(&peerInfo->mode_status.peer.connectedServices, peerInfo->mode_info.peer.peerID);
-	unlockConnectionMutexByInfo(peerInfo);
-
-	return 0;
-}
-
-int connectPeerToService(POLYM_CONNECTION_INFO *peerInfo, POLYM_CONNECTION_INFO *serviceInfo)
-{
-	//check to ensure that there is room for this new connection, fail if not
-	if (POLYM_PEER_MAX_SERVICE_CONNECTIONS <= int_array_count(&peerInfo->mode_status.peer.connectedServices))
-		return POLYM_ERROR_PEER_MAX_SERVICE_CONNECTIONS; // this peer's service connections is full
-	if (POLYM_SERVICE_MAX_PEER_CONNECTIONS <= int_array_count(&serviceInfo->mode_status.service.connectedPeers))
-		return POLYM_ERROR_SERVICE_MAX_PEER_CONNECTIONS; // this services's peer connections is full
-
-	int_array_push(&peerInfo->mode_status.peer.connectedServices, peerInfo->mode_info.peer.peerID);
-
-	lockConnectionMutexByInfo(serviceInfo);
-	int_array_push(&serviceInfo->mode_status.service.connectedPeers, serviceInfo->mode_info.service.serviceID);
-	unlockConnectionMutexByInfo(serviceInfo);
-
-	return 0;
-}
