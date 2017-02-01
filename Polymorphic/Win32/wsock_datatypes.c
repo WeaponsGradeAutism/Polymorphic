@@ -1,5 +1,4 @@
 #include <Win32/wsock_datatypes.h>
-#include <allocation.h>
 
 //---------------------------------------------------------------------------------------------------------------------------------------------
 //CONNECTION self-filling array
@@ -513,7 +512,7 @@ int service_connection_array_free(service_connection_array *vector) {
 
 void message_buffer_array_init(message_buffer_array *vector, int size)
 {
-	vector->messages = allocateMemory(sizeof(message_buffer) * size);
+	vector->messages = malloc(sizeof(message_buffer) * size);
 	vector->arraySize = size;
 	vector->messageCount = 0;
 	vector->nextIndex = 0;
@@ -534,7 +533,7 @@ message_buffer* message_buffer_array_allocate(message_buffer_array *vector, int 
 	}
 
 	// no open spaces found, expand the buffer for some more messages
-	message_buffer_array_extend(vector, 10);
+	//message_buffer_array_extend(vector, 10); TODO: implement
 	int index = vector->nextIndex;
 	vector->messages[index].index = vector->nextIndex;
 	vector->arraySize++;
