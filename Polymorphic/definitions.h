@@ -41,7 +41,7 @@
 
 // POLY command error codes
 #define POLY_COMMAND_CONNECT_ERROR_BUSY 0x0001 // connection already exists, but the connection attempt timed out
-#define POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL 3 // The outbound connection failed (TODO: change this to connect command error
+#define POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL 0x0002 // The outbound connection failed (TODO: change this to connect command error
 
 // Polymorphic thread events
 #define POLYM_EVENT_LISTEN 1 // Socket being listened on has recieved an event
