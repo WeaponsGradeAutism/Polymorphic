@@ -5,12 +5,12 @@
 int closeListenSocket(); 
 int startListenSocket(char* port); 
 
-void insertShortIntoBuffer(uint8_t *buffer, uint16_t unconvertedShort); // Insert the short into the buffer, converting it to network format. 
-void insertShortIntoBufferNC(uint8_t *buffer, uint16_t unconvertedShort); // Insert the short into the buffer, without converting it to network format. 
-void insertLongIntoBuffer(uint8_t *buffer, uint32_t unconvertedLong); // Insert the long into the buffer, converting it to network format. 
-void insertLongIntoBufferNC(uint8_t *buffer, uint32_t unconvertedLong); // Insert the long into the buffer, without converting it to network format. 
-uint16_t getShortFromBuffer(uint8_t* buffer); // Get the short from the buffer, converted from network format. 
-uint16_t getShortFromBufferNC(uint8_t* buffer); // Get the short from the buffer, but don't convert it from network format.
+void insertShortIntoBuffer(uint8_t *buffer, uint16_t unconvertedShort); 
+void insertShortIntoBufferNC(uint8_t *buffer, uint16_t unconvertedShort);
+void insertLongIntoBuffer(uint8_t *buffer, uint32_t unconvertedLong);
+void insertLongIntoBufferNC(uint8_t *buffer, uint32_t unconvertedLong);
+uint16_t getShortFromBuffer(uint8_t* buffer);
+uint16_t getShortFromBufferNC(uint8_t* buffer);
 uint32_t getLongFromBuffer(uint8_t* buffer);
 uint32_t getLongFromBufferNC(uint8_t* buffer);
 
