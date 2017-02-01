@@ -79,13 +79,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		// initalize connected peer array
 		int_array_init(&connection_info->mode_status.service.connectedPeers);
 
-		// attempt to recieve new or existing service setting
-		if (2 != sockRecv(connection, buffer, 2))
-		{
-			sendErrorCode(POLYM_ERROR_NEWEXISTING_CODE_FAIL, connection);
-			return POLYM_MODE_FAILED;
-		}
-
 			// initialize new service connection
 			connection_info->mode = POLYM_MODE_SERVICE;
 
@@ -104,9 +97,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 				return POLYM_MODE_FAILED;
 			}
 			connection_info->mode_info.service.serviceString = malloc(sizeof(uint8_t) * serviceStringSize);
-
-			// get 4 random bytes for service key
-			RAND_bytes(connection_info->mode_info.service.serviceKey, 4);
 
 			//get the service string
 			if (serviceStringSize != sockRecv(connection, connection_info->mode_info.service.serviceString, serviceStringSize))
@@ -130,16 +120,11 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 			// construct the last send buffer to send
 			buffer[0] = 0;
 			buffer[1] = 0; // set the first two bytes (result code) to 0 to indicate success
-			insertShortIntoBuffer(&buffer[2], (uint16_t)connection_info->mode_info.service.serviceID); // insert the service ID short into the buffer with octets 2 and 3
-			buffer[4] = connection_info->mode_info.service.serviceKey[0];
-			buffer[5] = connection_info->mode_info.service.serviceKey[1];
-			buffer[6] = connection_info->mode_info.service.serviceKey[2];
-			buffer[7] = connection_info->mode_info.service.serviceKey[3]; // set the last 4 bytes of the buffer to the service key.
 
 																		  // send the buffer
-			if (8 != sockSend(connection, buffer, 8))
+			if (2 != sockSend(connection, buffer, 8))
 			{
-				// if for some reason this fails, we need to remove the connection from the service listS
+				// if for some reason this fails, we need to remove the connection from the service list
 				removeService(connection_info->mode_info.service.serviceID);
 				return POLYM_MODE_SERVICE; // do not return fail so that the connection isn't closed twice
 			}
