@@ -54,7 +54,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 
 	uint8_t buffer[8]; // create a re-usable buffer for operations
 
-					   // attempt to recieve encryption setting
+	// attempt to recieve encryption setting
 	if (2 != sockRecv(connection, buffer, 2))
 		return POLY_MODE_FAILED;
 
