@@ -211,7 +211,7 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 
 }
 
-///<summary> Remove the supplied service from the connection list. </summary>
+///<summary> Remove the supplied service from the connection list and close it. </summary>
 void removeConnection(POLYM_CONNECTION_INFO *connection_info)
 {
 	switch (connection_info->mode)
