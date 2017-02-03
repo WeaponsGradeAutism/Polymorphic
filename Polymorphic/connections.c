@@ -147,7 +147,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 	}
 }
 
-///<summary> Completely initializes a new outbound POLY connection. Uses synchronous reads and sends. </summary>
+///<summary> Completely initializes a new outbound POLY connection to a peer. Uses synchronous reads and sends. </summary>
 ///<param name='ipAddress'> The IP address string to connect to. </param>
 ///<param name='l4Port'> The transport layer port to connection to. </param>
 ///<param name='protocol'> The protocol the connection will use. </param>
