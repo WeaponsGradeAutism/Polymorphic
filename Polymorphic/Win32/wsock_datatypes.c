@@ -3,6 +3,7 @@
 //---------------------------------------------------------------------------------------------------------------------------------------------
 //CONNECTION self-filling array
 
+///<summary> Initialize the connection array. </summary>
 void connection_array_init(connection_array *vector) 
 {
 	// initialize size and capacity
@@ -23,9 +24,9 @@ void connection_array_init(connection_array *vector)
 	}
 }
 
+///<summary> Initialize the connection array at a given capacity. </summary>
 void connection_array_init_capacity(connection_array *vector, uint32_t capacity) 
 {
-	// initialize size and capacity
 	// initialize size and capacity
 	vector->connections.size = 0;
 	vector->connections.members = 0;
@@ -44,6 +45,7 @@ void connection_array_init_capacity(connection_array *vector, uint32_t capacity)
 	}
 }
 
+///<summary> Grow the capacity of the connection array by doubling it. </summary>
 void connection_array_double_capacity_if_full(connection_array *vector) 
 {
 	if (vector->connections.capacity == 0)
@@ -65,6 +67,7 @@ void connection_array_double_capacity_if_full(connection_array *vector)
 	}
 }
 
+// TODO: get rid of unneccessary vancancy tracking, replace with scan
 void connection_array_double_vacancy_capacity_if_full(connection_array *vector) 
 {
 	if (vector->vacancies.capacity == 0)
@@ -99,6 +102,8 @@ int connection_array_pop_vacancy(connection_array *vector)
 	return ret;
 }
 
+///<summary> Add a connection object to the array. </summary>
+///<returns> Pointer to the connection object that's been added to the array. </returns>
 int connection_array_push(connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer)
 {
 
@@ -117,6 +122,7 @@ int connection_array_push(connection_array *vector, CONNECTION connection, CONNE
 
 }
 
+///<summary> Check if a given array index contains a connection object. </summary>
 int connection_array_element_exists(connection_array *vector, uint32_t index)
 {
 	if (index > 0 && index < vector->connections.size && vector->connections.data[index].socket != 0)
@@ -125,6 +131,7 @@ int connection_array_element_exists(connection_array *vector, uint32_t index)
 		return 0;
 }
 
+///<summary> Deletes the connection object at the given index. </summary>
 int connection_array_delete(connection_array *vector, uint32_t index)
 {
 	if (index >= vector->connections.size || index < 0 || vector->connections.data[index].socket == 0)
@@ -138,6 +145,7 @@ int connection_array_delete(connection_array *vector, uint32_t index)
 	return 0;
 }
 
+///<summary> Returns the connection object pointer for the given index. </summary>
 CONNECTION * connection_array_get(connection_array *vector, uint32_t index)
 {
 	if (index >= vector->connections.size || index < 0)
@@ -146,6 +154,8 @@ CONNECTION * connection_array_get(connection_array *vector, uint32_t index)
 	return &vector->connections.data[index];
 }
 
+///<summary> Returns an array of array containing all connection objects, skipping empty elements. </summary>
+//TODO: rename OUT
 int connection_array_get_all(connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray)
 {
 	uint32_t currentIndex = 0;
@@ -168,6 +178,7 @@ int connection_array_get_all(connection_array *vector, uint32_t maxCount, CONNEC
 	return currentIndex;
 }
 
+///<summary> Reduce the memory usage down to the smallest size possible. </summary>
 void connection_array_trim(connection_array *vector) 
 {
 	//trim capacity down to the size of the array
@@ -199,8 +210,8 @@ void connection_array_trim(connection_array *vector)
 		vector->vacancies.data = realloc(vector->vacancies.data, sizeof(CONNECTION**) * vector->vacancies.size);
 		vector->vacancies.capacity = vector->vacancies.size;
 	}
-
 }
+
 int connection_array_free_internals(connection_array *vector)
 {
 

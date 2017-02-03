@@ -58,7 +58,7 @@ typedef struct {
 	POLYM_OVERLAPPED overlap; // reused overlapped info for listening event
 
 	
-} CONNECTION;
+} CONNECTION; //TODO: rename to POLYM_CONNECTION
 
 typedef struct {
 	CONNECTION* connection;
