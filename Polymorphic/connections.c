@@ -171,33 +171,24 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 		return POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL;
 	}
 
-	uint8_t newlineTerminus = 0;
-	for (int x = 6; x < 500; x++)
+	int index = 6;
+	for (; index <= POLYM_GREETING_MAX_LENGTH; ++index)
 	{
 
-		if (1 != sockRecv(connection, &buffer[x], 1))
+		if (1 != sockRecv(connection, &buffer[index], 1))
 		{
 			sendErrorCode(POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL, connection);
 			removeConnection(info);
 			return POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL;
 		}
 
-		if (buffer[x] == '\r')
-		{
-			newlineTerminus = 1;
-			continue;
-		}
-		else if (newlineTerminus == 1)
-			if (buffer[x] == '\n')
+			if (buffer[index] == '\n')
 			{
-				newlineTerminus = 2;
 				break;
 			}
-			else
-				newlineTerminus = 0;
 	}
 
-	if (newlineTerminus != 2) // greeting is too long, close the connection
+	if (index > POLYM_GREETING_MAX_LENGTH) // greeting is too long, close the connection
 		closeUnitializedConnection(connection);
 
 	insertShortIntoBuffer(buffer, 0); // encryption mode
