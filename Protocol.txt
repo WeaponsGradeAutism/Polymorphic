@@ -67,7 +67,7 @@ what buffer size?
 BEGIN (s==>p p==>p)
 Opening connection.
 
-Greets with message "POLY v" with any number of arbitrary bytes afterward. Terminates with \r\n.
+Greets with message "POLY v" with any number of arbitrary bytes afterward. Terminates with \n.
 
 2-byte encryption request (0 for no encryption, anything else begins the connection with an encryption negotiation)
 (if enc)
