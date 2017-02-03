@@ -149,7 +149,7 @@ int closeConnection(CONNECTION *connection)
 	return 0; // this will return 0 upon graceful shutdown, error code if disconnect command fails.
 }
 
-///<summary> Attempt to close a connection gracefully using a generic pointer. </summary>
+///<summary> Attempt to close a connection that isn't on the connection list gracefully using a generic pointer. </summary>
 int closeUnitializedConnection(void *connection)
 {
 	return closeConnection((CONNECTION*)connection);
