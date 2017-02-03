@@ -12,7 +12,6 @@
 #include <connections.h>
 #include <definitions.h>
 
-
 #pragma comment(lib, "Ws2_32.lib")
 
 WSADATA wsaData;
