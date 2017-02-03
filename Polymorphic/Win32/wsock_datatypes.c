@@ -212,6 +212,8 @@ void connection_array_trim(connection_array *vector)
 	}
 }
 
+///<summary> Frees the provided connection array. Array must be empty.</summary>
+//TODO: Add connection_array_empty method.
 int connection_array_free(connection_array *vector) 
 {
 
