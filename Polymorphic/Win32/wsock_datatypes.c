@@ -212,7 +212,7 @@ void connection_array_trim(connection_array *vector)
 	}
 }
 
-int connection_array_free_internals(connection_array *vector)
+int connection_array_free(connection_array *vector) 
 {
 
 	// all connections need to be freed and deleted before freeing the array
@@ -221,17 +221,6 @@ int connection_array_free_internals(connection_array *vector)
 
 	free(vector->connections.data);
 	free(vector->vacancies.data);
-	return 0;
-}
-
-int connection_array_free(connection_array *vector) 
-{
-
-	// all connections need to be freed and deleted before freeing the array
-	if (vector->connections.members > 0)
-		return ARRAY_NOT_EMPTY;
-
-	connection_array_free_internals(vector);
 	free(vector);
 	return 0;
 }
