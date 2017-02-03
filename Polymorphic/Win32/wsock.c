@@ -43,6 +43,7 @@ uint8_t isShutdown = 0; // shutdown state of the daemon
 
 POLYM_OVERLAPPED shutdownOverlap; //overlap for the shutdown function
 
+///<summary> Initializes the winsock library. </summary>
 int initSocketLib() 
 {
 	// Initialize Winsock
@@ -50,12 +51,14 @@ int initSocketLib()
 	shutdownOverlap.eventType = POLYM_EVENT_SHUTDOWN;
 }
 
+///<summary> Shuts down the Polymorphic server. </summary>
 int closeListenSocket()
 {
 	isShutdown = 1;
 	return WSACleanup();
 }
 
+///<summary> Inserts the provided short into the provided buffer, converting it to network format. </summary>
 void insertShortIntoBuffer(uint8_t *buffer, uint16_t unconvertedShort)
 {
 	uint16_t convertedShort = htons(unconvertedShort);
@@ -63,12 +66,14 @@ void insertShortIntoBuffer(uint8_t *buffer, uint16_t unconvertedShort)
 	buffer[1] = convertedShort & 0x00FF;
 }
 
+///<summary> Inserts the provided short into the provided buffer, but does not convert it. </summary>
 void insertShortIntoBufferNC(uint8_t *buffer, uint16_t unconvertedShort)
 {
 	buffer[0] = unconvertedShort >> 8;
 	buffer[1] = unconvertedShort & 0x00FF;
 }
 
+///<summary> Inserts the provided long into the provided buffer, converting it to network format. </summary>
 void insertLongIntoBuffer(uint8_t *buffer, uint32_t unconvertedLong)
 {
 	uint32_t convertedLong = htonl(unconvertedLong);
@@ -78,6 +83,7 @@ void insertLongIntoBuffer(uint8_t *buffer, uint32_t unconvertedLong)
 	buffer[3] = convertedLong & 0x000000FF;
 }
 
+///<summary> Inserts the provided long into the provided buffer, but does not convert it. </summary>
 void insertLongIntoBufferNC(uint8_t *buffer, uint32_t unconvertedLong)
 {
 	buffer[0] = unconvertedLong >> 24;
@@ -86,26 +92,31 @@ void insertLongIntoBufferNC(uint8_t *buffer, uint32_t unconvertedLong)
 	buffer[3] = unconvertedLong & 0x000000FF;
 }
 
+///<summary> Gets the short from the provided buffer, converting it to network format. </summary>
 uint16_t getShortFromBuffer(uint8_t* buffer)
 {
 	return ntohs((((uint16_t)buffer[0]) << 8) | buffer[1]);
 }
 
+///<summary> Gets the short from the provided buffer, but does not convert it. </summary>
 uint16_t getShortFromBufferNC(uint8_t* buffer)
 {
 	return (((uint16_t)buffer[0]) << 8) | buffer[1];
 }
 
+///<summary> Gets the long from the provided buffer, converting it to network format. </summary>
 uint32_t getLongFromBuffer(uint8_t* buffer)
 {
 	return ntohs((((uint32_t)buffer[0]) << 24) | buffer[1] << 16 | buffer[2] << 8 | buffer[3]);
 }
 
+///<summary> Gets the long from the provided buffer, but does not convert it. </summary>
 uint32_t getLongFromBufferNC(uint8_t* buffer)
 {
 	return (((uint32_t)buffer[0]) << 24) | buffer[1] << 16 | buffer[2] << 8 | buffer[3];
 }
 
+///<summary> Initializes the typically unused POLYM_OVERLAPPED object values to defaults. <summary>
 void initializeOverlap(POLYM_OVERLAPPED* overlap)
 {
 	overlap->hEvent = 0;
@@ -116,7 +127,7 @@ void initializeOverlap(POLYM_OVERLAPPED* overlap)
 	overlap->Pointer = 0;
 }
 
-// attempt to close a connection gracefully.
+///<summary> Attempt to close a connection gracefully. <summary>
 int closeConnection(CONNECTION *connection)
 {
 	shutdown(connection->socket, SD_BOTH);
@@ -139,34 +150,39 @@ int closeConnection(CONNECTION *connection)
 	return 0; // this will return 0 upon graceful shutdown, error code if disconnect command fails.
 }
 
+///<summary> Attempt to close a connection gracefully using a generic pointer. </summary>
 int closeUnitializedConnection(void *connection)
 {
 	return closeConnection((CONNECTION*)connection);
 }
 
-VOID CALLBACK checkAlive(PVOID connection, BOOLEAN fired)
+///<summary> Sends the check alive command. </summary>
+VOID CALLBACK checkAlive(PVOID connection, BOOLEAN fired) //TODO: this needs to be changed to a regular command
 {
 	printf("CHECK-ALIVE: %i\n", send(((CONNECTION *)connection)->socket, "still there?\n", 13, 0));
 	// Send one ping command
 }
 
+///<summary> Executes when a new connection times out before it can be interacted with. </summary>
 VOID CALLBACK newConnectionTimeout(PVOID connection, BOOLEAN fired)
 {
 	closeConnection((CONNECTION *)connection);
 }
 
-//TCP send. TODO: Standardize error codes and flags.
+// TODO: Standardize error codes and flags.
+///<summary> Send command for TCP based connections. </summary>
 int tcpSend(SOCKET socket, uint8_t *buffer, uint32_t length, int32_t flags)
 {
 	return send(socket, buffer, length, flags);
 }
 
-
+///<summary> Recv command for TCP based connections. </summary>
 int tcpRecv(SOCKET socket, uint8_t *buffer, uint32_t length, int32_t flags)
 {
 	return recv(socket, buffer, length, flags);
 }
 
+///<summary> Send command for a socket, using its protocol's send command. </summary>
 int sockSend(void* connection, uint8_t *buffer, uint32_t length)
 {
 	CONNECTION* connPointer = ((CONNECTION*)connection);
@@ -179,12 +195,15 @@ int sockSend(void* connection, uint8_t *buffer, uint32_t length)
 	return -1;
 }
 
+///<summary> Async send over the TCP protocol. </summary>
 int tcpSendAsync(SOCKET socket, WSABUF *wsabuffer, int32_t flags, OVERLAPPED *overlap)
 {
 	
 	return WSASend((SOCKET)socket, wsabuffer, 1, NULL, 0, (OVERLAPPED*)overlap, NULL);
 }
 
+///<summary> Perform an asyncronous send on the supplied socket. </summary>
+//TODO: rethink memcpy approach
 int sockSendAsync(void* connection, uint8_t *buffer, int length)
 {
 
@@ -209,6 +228,7 @@ int sockSendAsync(void* connection, uint8_t *buffer, int length)
 	return -1;
 }
 
+///<summary> Recv command for a socket, using its protocol's recv command. </summary>
 int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
 {
 	CONNECTION* connPointer = ((CONNECTION*)connection);
@@ -508,6 +528,7 @@ int compareAddresses(struct in_addr address1, struct in_addr address2)
 	return address1.S_un.S_addr - address2.S_un.S_addr;
 }
 
+///<summary> Checks if a given address is already connected to the server. </summary>
 int addressConnected(char *stringAddress, uint16_t port, uint8_t protocol)
 {
 	struct in_addr address1;
@@ -523,6 +544,7 @@ int addressConnected(char *stringAddress, uint16_t port, uint8_t protocol)
 	return -1;
 }
 
+///<summary> Begin the process of initial.izing the supplied TCP connection. </summary>
 void initializeNewTCPConnection(CONNECTION *connection)
 {
 	const DWORD sock_timeout = 5 * 1000;
@@ -542,6 +564,7 @@ void initializeNewTCPConnection(CONNECTION *connection)
 	InitializeCriticalSection(connection->connectionMutex);
 }
 
+///<summary> Open a new outbound connection using the TCP protocol. </summary>
 void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **out_connectionInfo)
 {
 	struct addrinfo *result = NULL,
@@ -609,6 +632,7 @@ void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO 
 	return connectionPointer;
 }
 
+///<summary> Open a new outbound connection on the given protocol. </summary>
 void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **out_connectionInfo, uint8_t protocol)
 {
 	switch (protocol)
@@ -619,7 +643,7 @@ void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **o
 	return NULL;
 }
 
-// function for the control thread that accepts new connections
+///<summary> Loop that accepts new inbound connections and initializes them. </summary>
 DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 {
 	while (1)
