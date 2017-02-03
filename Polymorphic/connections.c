@@ -182,10 +182,10 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 			return POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL;
 		}
 
-			if (buffer[index] == '\n')
-			{
-				break;
-			}
+		if (buffer[index] == '\n')
+		{
+			break;
+		}
 	}
 
 	if (index > POLYM_GREETING_MAX_LENGTH) // greeting is too long, close the connection
