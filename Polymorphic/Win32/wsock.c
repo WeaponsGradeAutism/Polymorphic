@@ -206,7 +206,7 @@ int tcpSendAsync(SOCKET socket, WSABUF *wsabuffer, int32_t flags, OVERLAPPED *ov
 int sockSendAsync(void* connection, uint8_t *buffer, int length)
 {
 
-	message_buffer *allocation = message_buffer_array_allocate(&messageSpace, length);
+	message_buffer *allocation = message_buffer_array_allocate(&messageSpace);
 
 	// copy buffer to space and set length
 	allocation->wsabuf.buf = allocation->buf;

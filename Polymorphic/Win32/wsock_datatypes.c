@@ -232,46 +232,83 @@ int connection_array_free(connection_array *vector)
 
 //
 //---------------------------------------------------------------------------------------------------------------------------------------------
-// message buffer away
+// message buffer array
 //---------------------------------------------------------------------------------------------------------------------------------------------
+
+///<summary> Initializes the message buffer, prepping it for use or re-use. </summary>
+void message_buffer_init(message_buffer *buffer)
+{
+	buffer->overlap.eventInfo = NULL;
+	buffer->overlap.eventType = 0;
+	buffer->overlap.hEvent = 0;
+	buffer->overlap.Internal = 0;
+	buffer->overlap.InternalHigh = 0;
+	buffer->overlap.Offset = 0;
+	buffer->overlap.OffsetHigh = 0;
+	buffer->overlap.Pointer = NULL;
+
+	buffer->wsabuf.len = 0;
+	buffer->wsabuf.buf = NULL;
+}
 
 ///<summary> Initializes the message buffer array at the given size. </summary>
 void message_buffer_array_init(message_buffer_array *vector, int size)
 {
-	vector->messages = malloc(sizeof(message_buffer) * size);
-	vector->arraySize = size;
-	vector->messageCount = 0;
+	vector->messages = malloc(sizeof(message_buffer*) * size);
+	vector->size = size;
+	vector->count = 0;
 	vector->nextIndex = 0;
+
+	for (int x = 0; x < size; ++x)
+	{
+		vector->messages[x] = malloc(sizeof(message_buffer));
+		vector->messages[x]->index = -1;
+	}
 }
 
-///<summary> Finds an empty message buffer in the array, initializes it, and returns a pointer to it. </summary>
+///<summary> Expands the message buffer array by the given amount. </summary>
+void message_buffer_array_extend(message_buffer_array *vector, unsigned int amount)
+{
+	int oldsize = vector->size;
+	vector->size += amount;
+	vector->messages = realloc(vector, sizeof(message_buffer*) * vector->size);
+
+	for (int x = oldsize - 1; x < vector->size; ++x)
+	{
+		vector->messages[x] = malloc(sizeof(message_buffer));
+		vector->messages[x]->index = -1;
+	}
+}
+
+///<summary> Finds an empty message buffer in the array, initialized it, and returns a pointer to it. </summary>
 message_buffer* message_buffer_array_allocate(message_buffer_array *vector)
 {
-	for (int x = vector->nextIndex; x < vector->arraySize; x++)
+	for (int x = vector->nextIndex; x < vector->size; x++)
 	{
-		if (vector->messages[x].index < 0) // empty slot is denoted by an index of < 0
+		if (vector->messages[x]->index < 0) // empty slot is denoted by an index of < 0
 		{
-			vector->messages[x].index = x;
-			vector->arraySize++;
-			vector->nextIndex++;
-			return &vector->messages[x];
+			vector->messages[x]->index = x;
+			++vector->count;
+			vector->nextIndex = x+1;
+			message_buffer_init(vector->messages[x]);
+			return vector->messages[x];
 		}
 	}
 
 	// no open spaces found, expand the buffer for some more messages
-	//message_buffer_array_extend(vector, 10); TODO: implement
-	int index = vector->nextIndex;
-	vector->messages[index].index = vector->nextIndex;
-	vector->arraySize++;
-	vector->nextIndex++;
-	return &vector->messages[index];
+	message_buffer_array_extend(vector, 10);
+	return message_buffer_array_allocate(vector);
 }
 
 ///<summary> Marks the specified message buffer as freed. </summary>
 void message_buffer_array_free(message_buffer_array *vector, int index)
 {
-	vector->messages[index].index = -1;
-	vector->arraySize--;
+	vector->messages[index]->index = -1;
+	--vector->count;
+	if (index < vector->nextIndex)
+	{
+		vector->nextIndex = index;
+	}
 }
 
 ///<summary> Frees the message buffer array object. </summary>

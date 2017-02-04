@@ -99,9 +99,9 @@ typedef struct {
 } message_buffer;
 
 typedef struct {
-	message_buffer *messages; // pointer to a message_buffer array
-	int arraySize; // the current size of the message array
-	int messageCount; // the number of messages currently on the array
+	message_buffer **messages; // pointer to a message_buffer array
+	int size; // the current size of the message array
+	int count; // the number of messages currently on the array
 	int nextIndex; // the next index to be filled in the array
 } message_buffer_array;
 
@@ -112,6 +112,8 @@ CONNECTION* connection_array_get(connection_array *vector, uint32_t index);
 int connection_array_push(connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer);
 int connection_array_delete(connection_array *vector, uint32_t index);
 void connection_array_trim(connection_array *vector);
+
+void message_buffer_init(message_buffer *buffer);
 
 void message_buffer_array_init(message_buffer_array *vector, int size);
 message_buffer* message_buffer_array_allocate(message_buffer_array *vector);
