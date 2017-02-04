@@ -13,7 +13,9 @@
 #define POLY_MODE_SERVICE 1 // A service connection
 #define POLY_MODE_PEER 2 // A peer connection
 
+//poly protocol facts
 #define POLY_MAX_CONNECTIONS 65536 // The maximum number of connections allowable of either type
+#define POLY_MAX_MESSAGE_SIZE 65546 // The maximum message size possible on the POLY protocol
 
 // internal error codes
 #define POLYM_ERROR_NOT_GRACEFUL 1 // Connection failed to gracefully close

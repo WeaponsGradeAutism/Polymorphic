@@ -3,6 +3,7 @@
 #include <ws2tcpip.h>
 #include <stdint.h>
 #include <info_structure.h>
+#include <definitions.h>
 
 #define POLYM_SERVICE_ARRAY_GETALL_OVERFLOW -1
 
@@ -93,7 +94,7 @@ typedef struct {
 typedef struct {
 	WSABUF wsabuf;
 	POLYM_OVERLAPPED overlap;
-	uint8_t buf[65546]; // largest possible POLY message
+	uint8_t buf[POLY_MAX_MESSAGE_SIZE]; // largest possible POLY message
 	int index; // this message's position in the message array, set to -1 if currently not in use
 } message_buffer;
 
