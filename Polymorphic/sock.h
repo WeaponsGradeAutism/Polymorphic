@@ -32,8 +32,8 @@ void* getConnectionFromPeerID(uint16_t peerID);
 void* getConnectionFromServiceID(uint16_t serviceID, uint16_t portID);
 POLYM_CONNECTION_INFO* getInfoFromConnection(void *connection);
 POLYM_CONNECTION_INFO* getServiceConnectionInfo(int index);
-int getCurrentServiceConnections(void** OUT_connectionArray, uint32_t maxCount); // returns a full list of all the current connected services, up to maxCount
-int getCurrentPeerConnections(void** OUT_connectionArray, uint32_t maxCount); // returns a full list of all the current connected peers, up to maxCount
+int getCurrentServiceConnections(void** OUT_connectionArray, uint32_t maxCount);
+int getCurrentPeerConnections(void** OUT_connectionArray, uint32_t maxCount);
 
 int addressConnected(char *stringAddress, uint16_t port, uint8_t protocol);
 
