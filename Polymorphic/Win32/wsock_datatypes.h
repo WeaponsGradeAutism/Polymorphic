@@ -80,18 +80,6 @@ typedef struct {
 } connection_array;
 
 typedef struct {
-	uint32_t size;      // bound of the internal array
-	uint32_t members;   // the number of used slots
-	uint32_t capacity;  // total available slots
-	CONNECTION *data;     // array of connections we're storing
-} service_connection_vector;
-
-typedef struct {
-	service_connection_vector connections;
-	int_vector vacancies;
-} service_connection_array;
-
-typedef struct {
 	WSABUF wsabuf;
 	POLYM_OVERLAPPED overlap;
 	uint8_t buf[POLY_MAX_MESSAGE_SIZE]; // largest possible POLY message
