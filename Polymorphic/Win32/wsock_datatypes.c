@@ -1,7 +1,7 @@
 #include <Win32/wsock_datatypes.h>
 
 //---------------------------------------------------------------------------------------------------------------------------------------------
-//CONNECTION self-filling array
+//POLYM_CONNECTION self-filling array
 
 ///<summary> Initialize the connection array. </summary>
 void connection_array_init(connection_array *vector) 
@@ -14,7 +14,7 @@ void connection_array_init(connection_array *vector)
 	vector->vacancies.capacity = VECTOR_INITIAL_CAPACITY;
 
 	// allocate memory for vector->data
-	vector->connections.data = malloc(sizeof(CONNECTION) * vector->connections.capacity);
+	vector->connections.data = malloc(sizeof(POLYM_CONNECTION) * vector->connections.capacity);
 	vector->vacancies.data = malloc(sizeof(int) * vector->vacancies.capacity);
 
 	// need to set socket to 0 because it's used to indicate empty elements
@@ -35,7 +35,7 @@ void connection_array_init_capacity(connection_array *vector, uint32_t capacity)
 	vector->vacancies.capacity = capacity;
 
 	// allocate memory for vector->data
-	vector->connections.data = malloc(sizeof(CONNECTION) * vector->connections.capacity);
+	vector->connections.data = malloc(sizeof(POLYM_CONNECTION) * vector->connections.capacity);
 	vector->vacancies.data = malloc(sizeof(uint32_t) * vector->vacancies.capacity);
 
 	// need to set socket to 0 because it's used to indicate empty elements
@@ -51,13 +51,13 @@ void connection_array_double_capacity_if_full(connection_array *vector)
 	if (vector->connections.capacity == 0)
 	{
 		vector->connections.capacity = VECTOR_INITIAL_CAPACITY;
-		vector->connections.data = malloc(sizeof(CONNECTION) * vector->connections.capacity);
+		vector->connections.data = malloc(sizeof(POLYM_CONNECTION) * vector->connections.capacity);
 	}
 	if (vector->connections.size >= vector->connections.capacity) {
 		// double vector->capacity and resize the allocated memory accordingly
 		int oldCapacity = vector->connections.capacity;
 		vector->connections.capacity += VECTOR_INITIAL_CAPACITY;
-		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION) * vector->connections.capacity);
+		vector->connections.data = realloc(vector->connections.data, sizeof(POLYM_CONNECTION) * vector->connections.capacity);
 
 		// need to set socket to 0 because it's used to indicate empty elements
 		for (unsigned int x = oldCapacity; x < vector->connections.capacity; x++)
@@ -82,7 +82,7 @@ void connection_array_double_vacancy_capacity_if_full(connection_array *vector)
 	}
 }
 
-int connection_array_append(connection_array *vector, CONNECTION connection)
+int connection_array_append(connection_array *vector, POLYM_CONNECTION connection)
 {
 
 	// make sure there's room to expand into
@@ -104,7 +104,7 @@ int connection_array_pop_vacancy(connection_array *vector)
 
 ///<summary> Add a connection object to the array. </summary>
 ///<returns> Pointer to the connection object that's been added to the array. </returns>
-int connection_array_push(connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer)
+int connection_array_push(connection_array *vector, POLYM_CONNECTION connection, POLYM_CONNECTION **out_connectionPointer)
 {
 
 	if (vector->vacancies.size > 0)
@@ -146,7 +146,7 @@ int connection_array_delete(connection_array *vector, uint32_t index)
 }
 
 ///<summary> Returns the connection object pointer for the given index. </summary>
-CONNECTION * connection_array_get(connection_array *vector, uint32_t index)
+POLYM_CONNECTION * connection_array_get(connection_array *vector, uint32_t index)
 {
 	if (index >= vector->connections.size || index < 0)
 		return NULL;
@@ -157,12 +157,12 @@ CONNECTION * connection_array_get(connection_array *vector, uint32_t index)
 ///<summary> Returns an array of array containing all connection objects, skipping empty elements. </summary>
 ///<returns> The size of the array produced. </returns>
 //TODO: rename OUT
-int connection_array_get_all(connection_array *vector, unsigned int maxCount, CONNECTION **OUT_connectionArray)
+int connection_array_get_all(connection_array *vector, unsigned int maxCount, POLYM_CONNECTION **OUT_connectionArray)
 {
 	unsigned int currentIndex = 0;
 	for (unsigned int x = 0; x < vector->connections.size && currentIndex < maxCount; x++)
 	{
-		CONNECTION *connection = connection_array_get(vector, x);
+		POLYM_CONNECTION *connection = connection_array_get(vector, x);
 		if (connection != NULL)
 		{
 			
@@ -195,7 +195,7 @@ void connection_array_trim(connection_array *vector)
 	else
 	{
 		//size the memory allocation down to its size
-		vector->connections.data = realloc(vector->connections.data, sizeof(CONNECTION*) * vector->connections.size);
+		vector->connections.data = realloc(vector->connections.data, sizeof(POLYM_CONNECTION*) * vector->connections.size);
 		vector->connections.capacity = vector->connections.size;
 
 	}
@@ -210,7 +210,7 @@ void connection_array_trim(connection_array *vector)
 	else
 	{
 		//size the memory allocation down to its size
-		vector->vacancies.data = realloc(vector->vacancies.data, sizeof(CONNECTION**) * vector->vacancies.size);
+		vector->vacancies.data = realloc(vector->vacancies.data, sizeof(POLYM_CONNECTION**) * vector->vacancies.size);
 		vector->vacancies.capacity = vector->vacancies.size;
 	}
 }

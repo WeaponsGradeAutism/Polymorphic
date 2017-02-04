@@ -59,10 +59,10 @@ typedef struct {
 	POLYM_OVERLAPPED overlap; // reused overlapped info for listening event
 
 	
-} CONNECTION; //TODO: rename to POLYM_CONNECTION
+} POLYM_CONNECTION; //TODO: rename to POLYM_CONNECTION
 
 typedef struct {
-	CONNECTION* connection;
+	POLYM_CONNECTION* connection;
 	int event;
 	void* eventInfo;
 } CONNECTION_EVENT;
@@ -71,7 +71,7 @@ typedef struct {
 	uint32_t size;      // bound of the internal array
 	uint32_t members;   // the number of used slots
 	uint32_t capacity;  // total available slots
-	CONNECTION *data;     // array of connections we're storing
+	POLYM_CONNECTION *data;     // array of connections we're storing
 } connection_vector;
 
 typedef struct {
@@ -95,9 +95,9 @@ typedef struct {
 
 void connection_array_init(connection_array *vector);
 void connection_array_init_capacity(connection_array *vector, uint32_t capacity);
-int connection_array_get_all(connection_array *vector, unsigned int maxCount, CONNECTION **OUT_connectionArray);
-CONNECTION* connection_array_get(connection_array *vector, uint32_t index);
-int connection_array_push(connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer);
+int connection_array_get_all(connection_array *vector, unsigned int maxCount, POLYM_CONNECTION **OUT_connectionArray);
+POLYM_CONNECTION* connection_array_get(connection_array *vector, uint32_t index);
+int connection_array_push(connection_array *vector, POLYM_CONNECTION connection, POLYM_CONNECTION **out_connectionPointer);
 int connection_array_delete(connection_array *vector, uint32_t index);
 void connection_array_trim(connection_array *vector);
 

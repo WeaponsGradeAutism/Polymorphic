@@ -127,7 +127,7 @@ void initializeOverlap(POLYM_OVERLAPPED* overlap)
 }
 
 ///<summary> Attempt to close a connection gracefully. <summary>
-int closeConnection(CONNECTION *connection)
+int closeConnection(POLYM_CONNECTION *connection)
 {
 	shutdown(connection->socket, SD_BOTH);
 	closesocket(connection->socket);
@@ -152,20 +152,20 @@ int closeConnection(CONNECTION *connection)
 ///<summary> Attempt to close a connection that isn't on the connection list gracefully using a generic pointer. </summary>
 int closeUnitializedConnection(void *connection)
 {
-	return closeConnection((CONNECTION*)connection);
+	return closeConnection((POLYM_CONNECTION*)connection);
 }
 
 ///<summary> Sends the check alive command. </summary>
 VOID CALLBACK checkAlive(PVOID connection, BOOLEAN fired) //TODO: this needs to be changed to a regular command
 {
-	printf("CHECK-ALIVE: %i\n", send(((CONNECTION *)connection)->socket, "still there?\n", 13, 0));
+	printf("CHECK-ALIVE: %i\n", send(((POLYM_CONNECTION *)connection)->socket, "still there?\n", 13, 0));
 	// Send one ping command
 }
 
 ///<summary> Executes when a new connection times out before it can be interacted with. </summary>
 VOID CALLBACK newConnectionTimeout(PVOID connection, BOOLEAN fired)
 {
-	closeConnection((CONNECTION *)connection);
+	closeConnection((POLYM_CONNECTION *)connection);
 }
 
 // TODO: Standardize error codes and flags.
@@ -184,7 +184,7 @@ int tcpRecv(SOCKET socket, uint8_t *buffer, uint32_t length, int32_t flags)
 ///<summary> Send command for a socket, using its protocol's send command. </summary>
 int sockSend(void* connection, uint8_t *buffer, uint32_t length)
 {
-	CONNECTION* connPointer = ((CONNECTION*)connection);
+	POLYM_CONNECTION* connPointer = ((POLYM_CONNECTION*)connection);
 	switch (connPointer->protocol)
 	{
 	case POLY_PROTO_TCP:
@@ -218,10 +218,10 @@ int sockSendAsync(void* connection, uint8_t *buffer, int length)
 	allocation->overlap.eventInfo = &allocation;
 	initializeOverlap(&allocation->overlap);
 
-	switch ( ((CONNECTION*)connection)->protocol )
+	switch ( ((POLYM_CONNECTION*)connection)->protocol )
 	{
 	case POLY_PROTO_TCP:
-		return tcpSendAsync( ((CONNECTION*)connection)->socket, &allocation->wsabuf, 0, (OVERLAPPED*)&allocation->overlap );
+		return tcpSendAsync( ((POLYM_CONNECTION*)connection)->socket, &allocation->wsabuf, 0, (OVERLAPPED*)&allocation->overlap );
 		break;
 	}
 	return -1;
@@ -230,7 +230,7 @@ int sockSendAsync(void* connection, uint8_t *buffer, int length)
 ///<summary> Recv command for a socket, using its protocol's recv command. </summary>
 int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
 {
-	CONNECTION* connPointer = ((CONNECTION*)connection);
+	POLYM_CONNECTION* connPointer = ((POLYM_CONNECTION*)connection);
 
 	switch (connPointer->protocol)
 	{
@@ -250,7 +250,7 @@ const char* intIPtoStringIP(uint32_t ipv4AddressLong, char *out_StringIP, int bu
 }
 
 ///<summary> Locks the synchronization object associated with a connection object. </summary>
-void lockConnectionMutex(CONNECTION *connection)
+void lockConnectionMutex(POLYM_CONNECTION *connection)
 {
 	EnterCriticalSection(connection->connectionMutex);
 }
@@ -262,7 +262,7 @@ void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 }
 
 ///<summary> Unlocks the synchronization object associated with a connection object.</summary>
-void unlockConnectionMutex(CONNECTION *connection)
+void unlockConnectionMutex(POLYM_CONNECTION *connection)
 {
 	LeaveCriticalSection(connection->connectionMutex);
 }
@@ -281,7 +281,7 @@ DWORD WINAPI eventListener(LPVOID dummy)
 	while (1) {
 		// return values for GetQueuedCompletionStatus
 		uint32_t bytesTansferred;
-		CONNECTION *connection;
+		POLYM_CONNECTION *connection;
 		POLYM_OVERLAPPED *overlap;
 
 		// wait to recieve an event
@@ -351,7 +351,7 @@ POLYM_CONNECTION_INFO* getServiceConnectionInfo(int service_ID)
 ///<returns> Returns 1 on exact match, 0 otherwise. </returns>
 int serviceStringExists(char* string) 
 {
-	CONNECTION *connections[POLY_MAX_CONNECTIONS];
+	POLYM_CONNECTION *connections[POLY_MAX_CONNECTIONS];
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
 	int arraySize = connection_array_get_all(&serviceConnections, POLY_MAX_CONNECTIONS, connections);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
@@ -369,7 +369,7 @@ int serviceStringExists(char* string)
 int getCurrentServiceConnections(void** OUT_connectionArray, unsigned int maxCount)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	int ret = connection_array_get_all(&serviceConnections, maxCount, (CONNECTION**)OUT_connectionArray);
+	int ret = connection_array_get_all(&serviceConnections, maxCount, (POLYM_CONNECTION**)OUT_connectionArray);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	return ret;
 }
@@ -380,7 +380,7 @@ int getCurrentServiceConnections(void** OUT_connectionArray, unsigned int maxCou
 int getCurrentPeerConnections(void** OUT_connectionArray, uint32_t maxCount)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
-	int ret = connection_array_get_all(&peerConnections, maxCount, (CONNECTION**)OUT_connectionArray);
+	int ret = connection_array_get_all(&peerConnections, maxCount, (POLYM_CONNECTION**)OUT_connectionArray);
 	LeaveCriticalSection(&peerConnectionsCriticalSection);
 	return ret;
 }
@@ -389,7 +389,7 @@ int getCurrentPeerConnections(void** OUT_connectionArray, uint32_t maxCount)
 int getPeerConnectionAddressString(int peerID, int stringBufferSize, char* out_stringBuffer)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
-	CONNECTION* connection = connection_array_get(&peerConnections, peerID);
+	POLYM_CONNECTION* connection = connection_array_get(&peerConnections, peerID);
 	LeaveCriticalSection(&peerConnectionsCriticalSection);
 	switch (connection->addrtype)
 	{
@@ -405,7 +405,7 @@ int getPeerConnectionAddressString(int peerID, int stringBufferSize, char* out_s
 ///<summary> Rebuilds the server's combined service string. </summary>
 void rebuildServiceString()
 {
-	CONNECTION *services[65536];
+	POLYM_CONNECTION *services[65536];
 	int connectionCount = getCurrentServiceConnections((void**)&services, 65536);
 	EnterCriticalSection(&serviceStringCriticalSection);
 	strcpy(serviceString, "");
@@ -424,11 +424,11 @@ int addNewService(void* connection, void** out_connectionPointer)
 {
 	// TODO: need to fail if we have USHORT_MAX services without any vacancies. needs to return either negative error code or a value within the bounds of a USHORT.
 	EnterCriticalSection(&serviceStringCriticalSection);
-	strcat(serviceString, ((CONNECTION*)connection)->info.mode_info.service.serviceString);
+	strcat(serviceString, ((POLYM_CONNECTION*)connection)->info.mode_info.service.serviceString);
 	strcat(serviceString, "|");
 	LeaveCriticalSection(&serviceStringCriticalSection);
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	int ret = connection_array_push(&serviceConnections, *(CONNECTION*)connection, (CONNECTION**)out_connectionPointer);
+	int ret = connection_array_push(&serviceConnections, *(POLYM_CONNECTION*)connection, (POLYM_CONNECTION**)out_connectionPointer);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	return ret;
 }
@@ -438,7 +438,7 @@ int addNewService(void* connection, void** out_connectionPointer)
 int32_t removeService(uint16_t serviceID)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	CONNECTION* connection = connection_array_get(&serviceConnections, serviceID);
+	POLYM_CONNECTION* connection = connection_array_get(&serviceConnections, serviceID);
 
 	if (connection = NULL)
 		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
@@ -460,7 +460,7 @@ int32_t removeService(uint16_t serviceID)
 int addNewPeer(void* connection, void **out_connectionPointer)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
-	int ret = connection_array_push(&peerConnections, *(CONNECTION*)connection, (CONNECTION**)out_connectionPointer);
+	int ret = connection_array_push(&peerConnections, *(POLYM_CONNECTION*)connection, (POLYM_CONNECTION**)out_connectionPointer);
 	LeaveCriticalSection(&peerConnectionsCriticalSection);
 	return ret;
 }
@@ -470,7 +470,7 @@ int addNewPeer(void* connection, void **out_connectionPointer)
 int32_t removePeer(uint16_t peerID)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
-	CONNECTION* connection = connection_array_get(&peerConnections, peerID);
+	POLYM_CONNECTION* connection = connection_array_get(&peerConnections, peerID);
 
 	if (connection = NULL)
 		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
@@ -505,7 +505,7 @@ void* getConnectionFromServiceID(uint16_t serviceID)
 ///<summary> Gets the connection info object from the given socket reference. </summary>
 POLYM_CONNECTION_INFO* getInfoFromConnection(void *connection)
 {
-	return &((CONNECTION*)connection)->info;
+	return &((POLYM_CONNECTION*)connection)->info;
 }
 
 ///<summary> Calculates the difference between two address structures. 0 means equality. </summary>
@@ -519,7 +519,7 @@ int addressConnected(char *stringAddress, uint16_t port, uint8_t protocol)
 {
 	struct in_addr address1;
 	inet_pton(AF_INET, stringAddress, &address1);
-	CONNECTION* connections[MAX_CONNECTIONS];
+	POLYM_CONNECTION* connections[MAX_CONNECTIONS];
 	int numConnections = getCurrentPeerConnections((void**)&connections, MAX_CONNECTIONS);
 
 	for (int x = 0; x < numConnections; x++)
@@ -531,7 +531,7 @@ int addressConnected(char *stringAddress, uint16_t port, uint8_t protocol)
 }
 
 ///<summary> Begin the process of initial.izing the supplied TCP connection. </summary>
-void initializeNewTCPConnection(CONNECTION *connection)
+void initializeNewTCPConnection(POLYM_CONNECTION *connection)
 {
 	const DWORD sock_timeout = 5 * 1000;
 	setsockopt(connection->socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&sock_timeout, sizeof(sock_timeout));
@@ -587,7 +587,7 @@ void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO 
 		return NULL;
 	}
 
-	CONNECTION connection;
+	POLYM_CONNECTION connection;
 	// Connect to server.
 	connection.socket = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 	if (connection.socket == SOCKET_ERROR) {
@@ -613,7 +613,7 @@ void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO 
 
 	*out_connectionInfo = &connection.info;
 
-	CONNECTION *connectionPointer;
+	POLYM_CONNECTION *connectionPointer;
 	connection.info.mode_info.peer.peerID = addNewPeer(&connection, &connectionPointer);
 	return connectionPointer;
 }
@@ -637,7 +637,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 
 		// create a new empty connection object and wait for new connections
 		int structlength = sizeof(struct sockaddr);
-		CONNECTION connection;
+		POLYM_CONNECTION connection;
 		connection.socket = accept(acceptSocket, (struct sockaddr*)&connection.address.ipv4, &structlength);
 		
 		// don't proceed if shutting down. accept will unblock but no connection will be present. break instead.
@@ -662,7 +662,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 			
 
 			// OPTI: initializing connections may need to become multithreaded.
-			CONNECTION *newConnectionPointer;
+			POLYM_CONNECTION *newConnectionPointer;
 			if (POLY_MODE_FAILED == initializeIncomingConnection(&connection, &connection.info, &newConnectionPointer))
 			{
 				printf("CONNECTION FAILED.\n");
