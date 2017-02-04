@@ -114,6 +114,6 @@ int connection_array_delete(connection_array *vector, uint32_t index);
 void connection_array_trim(connection_array *vector);
 
 void message_buffer_array_init(message_buffer_array *vector, int size);
-message_buffer* message_buffer_array_allocate(message_buffer_array *vector, int length);
+message_buffer* message_buffer_array_allocate(message_buffer_array *vector);
 void message_buffer_array_free(message_buffer_array *vector, int index);
 void message_buffer_array_free_container(message_buffer_array *vector);

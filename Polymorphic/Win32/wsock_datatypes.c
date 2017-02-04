@@ -235,6 +235,7 @@ int connection_array_free(connection_array *vector)
 // message buffer away
 //---------------------------------------------------------------------------------------------------------------------------------------------
 
+///<summary> Initializes the message buffer array at the given size. </summary>
 void message_buffer_array_init(message_buffer_array *vector, int size)
 {
 	vector->messages = malloc(sizeof(message_buffer) * size);
@@ -243,8 +244,8 @@ void message_buffer_array_init(message_buffer_array *vector, int size)
 	vector->nextIndex = 0;
 }
 
-// returns a pointer to a buffer that can be used to store data, and marks it as being in use by assigning it a length
-message_buffer* message_buffer_array_allocate(message_buffer_array *vector, int length)
+///<summary> Finds an empty message buffer in the array, initializes it, and returns a pointer to it. </summary>
+message_buffer* message_buffer_array_allocate(message_buffer_array *vector)
 {
 	for (int x = vector->nextIndex; x < vector->arraySize; x++)
 	{
@@ -266,13 +267,14 @@ message_buffer* message_buffer_array_allocate(message_buffer_array *vector, int 
 	return &vector->messages[index];
 }
 
-// marks a buffer as free once it's finished being used
+///<summary> Marks the specified message buffer as freed. </summary>
 void message_buffer_array_free(message_buffer_array *vector, int index)
 {
 	vector->messages[index].index = -1;
 	vector->arraySize--;
 }
 
+///<summary> Frees the message buffer array object. </summary>
 void message_buffer_array_free_container(message_buffer_array *vector)
 {
 	free(vector->messages);
