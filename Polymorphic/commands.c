@@ -141,7 +141,7 @@ void sendMessageErrorToService(void* connection, uint16_t peerID, uint16_t error
 
 int sendMessageToServiceID(uint16_t serviceID, uint16_t portID, uint8_t* message, uint16_t length)
 {
-	void *connection = getConnectionFromServiceID(serviceID, portID);
+	void *connection = getConnectionFromServiceID(serviceID);
 
 	if (connection == NULL)
 		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;

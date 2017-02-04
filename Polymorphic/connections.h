@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <sock.h>
 
-#define POLY_GREETING "POLY v0.1, Polymorphic client v0.1 at your misfortune.\n"
+#define POLYM_GREETING "POLY v0.1, Polymorphic client v0.1 at your misfortune.\n"
 #define POLYM_GREETING_MAX_LENGTH 500
 
 #define POLYM_ARRAY_PUSH_SUCCESS 0

@@ -13,6 +13,8 @@
 #define POLY_MODE_SERVICE 1 // A service connection
 #define POLY_MODE_PEER 2 // A peer connection
 
+#define POLY_MAX_CONNECTIONS 65536 // The maximum number of connections allowable of either type
+
 // internal error codes
 #define POLYM_ERROR_NOT_GRACEFUL 1 // Connection failed to gracefully close
 

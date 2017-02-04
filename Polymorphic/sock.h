@@ -29,7 +29,7 @@ int closeUnitializedConnection(void *connection);
 const char* intIPtoStringIP(uint32_t ipv4AddressLong, char *OUT_StringIP, int bufferSize);
 
 void* getConnectionFromPeerID(uint16_t peerID);
-void* getConnectionFromServiceID(uint16_t serviceID, uint16_t portID);
+void* getConnectionFromServiceID(uint16_t serviceID);
 POLYM_CONNECTION_INFO* getInfoFromConnection(void *connection);
 POLYM_CONNECTION_INFO* getServiceConnectionInfo(int index);
 int getCurrentServiceConnections(void** OUT_connectionArray, uint32_t maxCount);

@@ -7,7 +7,7 @@
 ///<returns> Error code on failure, 0 for success </returns>
 int sendGreeting(void *connection)
 {
-	if (sizeof(POLYMORPHIC_GREETING) != sockSend(connection, POLYMORPHIC_GREETING, sizeof(POLYMORPHIC_GREETING)))
+	if (sizeof(POLYM_GREETING) != sockSend(connection, POLYM_GREETING, sizeof(POLYM_GREETING)))
 		return POLY_MODE_FAILED;
 	return 0;
 }

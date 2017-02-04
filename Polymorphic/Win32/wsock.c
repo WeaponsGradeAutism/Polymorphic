@@ -20,7 +20,7 @@ SOCKET acceptSocket = INVALID_SOCKET;
 //multi-threaded vaiables
 connection_array peerConnections; // stores peer connections by ID
 CRITICAL_SECTION peerConnectionsCriticalSection; // sync object
-service_connection_array serviceConnections; // stores main service connections by ID
+connection_array serviceConnections; // stores main service connections by ID
 CRITICAL_SECTION serviceConnectionsCriticalSection; // sync object
 message_buffer_array messageSpace; // stores main service connections by ID
 CRITICAL_SECTION messageSpaceCriticalSection; // sync object
@@ -258,17 +258,7 @@ void lockConnectionMutex(CONNECTION *connection)
 ///<summary> Locks the synchronization object associated with a connection object, using its info object. </summary>
 void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 {
-	switch (info->mode)
-	{
-	case POLY_MODE_SERVICE:
-		lockConnectionMutex(service_connection_array_get_connection(&serviceConnections, info->mode_info.service.serviceID));
-		return;
-	case POLY_MODE_PEER:
 		lockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
-		return;
-	default:
-		return;
-	}
 }
 
 ///<summary> Unlocks the synchronization object associated with a connection object.</summary>
@@ -280,18 +270,9 @@ void unlockConnectionMutex(CONNECTION *connection)
 ///<summary> Unlocks the synchronization object associated with a connection object, using its info object. </summary>
 void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 {
-	switch (info->mode)
-	{
-	case POLY_MODE_SERVICE:
-		unlockConnectionMutex(service_connection_array_get_connection(&serviceConnections, info->mode_info.service.serviceID));
-		return;
-	case POLY_MODE_PEER:
-		unlockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
-		return;
-	default:
-		return;
-	}
+	unlockConnectionMutex(connection_array_get(&serviceConnections, info->mode_info.service.serviceID));
 }
+
 
 ///<summary> This is the main event loop that worker threads will run. </summary>
 DWORD WINAPI eventListener(LPVOID dummy)
@@ -361,7 +342,7 @@ int closeWorkerThreads(int count)
 POLYM_CONNECTION_INFO* getServiceConnectionInfo(int service_ID)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	POLYM_CONNECTION_INFO *ret = &service_connection_array_get_connection(&serviceConnections, service_ID)->info;
+	POLYM_CONNECTION_INFO *ret = &connection_array_get(&serviceConnections, service_ID)->info;
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	return ret;
 }
@@ -370,19 +351,25 @@ POLYM_CONNECTION_INFO* getServiceConnectionInfo(int service_ID)
 ///<returns> Returns 1 on exact match, 0 otherwise. </returns>
 int serviceStringExists(char* string) 
 {
+	CONNECTION *connections[POLY_MAX_CONNECTIONS];
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	int ret = service_connection_array_service_string_exists(&serviceConnections, string);
+	int arraySize = connection_array_get_all(&serviceConnections, POLY_MAX_CONNECTIONS, connections);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
-	return ret;
+	for (int x = 0; x < arraySize; x++) 
+	{
+		if (strcmp(string, connections[x]->info.mode_info.service.serviceString))
+			return 1;
+	}
+	return 0;
 }
 
 ///<summary> Returns an array of pointers to the connection objects for all connected services. </summary>
 ///<param name="maxCount"> The maximum number of services to be retrieved. </param>
 ///<returns> Returns the number of services fetched </returns>
-int getCurrentServiceConnections(void** OUT_connectionArray, uint32_t maxCount)
+int getCurrentServiceConnections(void** OUT_connectionArray, unsigned int maxCount)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	int ret = service_connection_array_get_all_connections(&serviceConnections, maxCount, (CONNECTION**)OUT_connectionArray);
+	int ret = connection_array_get_all(&serviceConnections, maxCount, (CONNECTION**)OUT_connectionArray);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	return ret;
 }
@@ -441,7 +428,7 @@ int addNewService(void* connection, void** out_connectionPointer)
 	strcat(serviceString, "|");
 	LeaveCriticalSection(&serviceStringCriticalSection);
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	int ret = service_connection_array_push(&serviceConnections, *(CONNECTION*)connection, (CONNECTION**)out_connectionPointer);
+	int ret = connection_array_push(&serviceConnections, *(CONNECTION*)connection, (CONNECTION**)out_connectionPointer);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	return ret;
 }
@@ -451,12 +438,12 @@ int addNewService(void* connection, void** out_connectionPointer)
 int32_t removeService(uint16_t serviceID)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	CONNECTION* connection = service_connection_array_get_connection(&serviceConnections, serviceID);
+	CONNECTION* connection = connection_array_get(&serviceConnections, serviceID);
 
 	if (connection = NULL)
 		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
 
-	int result = service_connection_array_delete(&serviceConnections, serviceID);
+	int result = connection_array_delete(&serviceConnections, serviceID);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	
 	if (result == 0)
@@ -510,7 +497,7 @@ void* getConnectionFromPeerID(uint16_t peerID)
 void* getConnectionFromServiceID(uint16_t serviceID)
 {
 		EnterCriticalSection(&serviceConnectionsCriticalSection);
-		void *ret = service_connection_array_get_connection(&serviceConnections, serviceID);
+		void *ret = connection_array_get(&serviceConnections, serviceID);
 		LeaveCriticalSection(&serviceConnectionsCriticalSection);
 		return ret;
 }
@@ -709,7 +696,7 @@ int startListenSocket(char* port)
 
 	//RAND_poll(); TODO
 
-	service_connection_array_init(&serviceConnections);
+	connection_array_init(&serviceConnections);
 	connection_array_init(&peerConnections);
 	message_buffer_array_init(&messageSpace, 100);
 

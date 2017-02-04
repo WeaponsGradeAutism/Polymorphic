@@ -106,19 +106,11 @@ typedef struct {
 
 void connection_array_init(connection_array *vector);
 void connection_array_init_capacity(connection_array *vector, uint32_t capacity);
-int connection_array_get_all(connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray);
+int connection_array_get_all(connection_array *vector, unsigned int maxCount, CONNECTION **OUT_connectionArray);
 CONNECTION* connection_array_get(connection_array *vector, uint32_t index);
 int connection_array_push(connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer);
 int connection_array_delete(connection_array *vector, uint32_t index);
 void connection_array_trim(connection_array *vector);
-
-void service_connection_array_init(service_connection_array *vector);
-int service_connection_array_get_all_connections(service_connection_array *vector, uint32_t maxCount, CONNECTION **OUT_connectionArray);
-CONNECTION* service_connection_array_get_connection(service_connection_array *vector, uint32_t index);
-int service_connection_array_service_string_exists(service_connection_array *vector, char *string);
-int service_connection_array_push(service_connection_array *vector, CONNECTION connection, CONNECTION **out_connectionPointer);
-int service_connection_array_delete(service_connection_array *vector, uint32_t index);
-void service_connection_array_trim(service_connection_array *vector);
 
 void message_buffer_array_init(message_buffer_array *vector, int size);
 message_buffer* message_buffer_array_allocate(message_buffer_array *vector, int length);
