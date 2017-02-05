@@ -74,8 +74,7 @@ POLYM_CONNECTION* connection_array_get(connection_array *vector, int index)
 
 ///<summary> Returns an array of array containing all connection objects, skipping empty elements. </summary>
 ///<returns> The size of the array produced. </returns>
-//TODO: rename OUT
-int connection_array_get_all(connection_array *vector, int maxCount, POLYM_CONNECTION **OUT_connectionArray)
+int connection_array_get_all(connection_array *vector, int maxCount, POLYM_CONNECTION **out_connectionArray)
 {
 	int currentIndex = 0;
 	for (int x = 0; x < vector->size && currentIndex < maxCount; ++x)
@@ -84,7 +83,7 @@ int connection_array_get_all(connection_array *vector, int maxCount, POLYM_CONNE
 		if (connection != NULL)
 		{
 			
-			OUT_connectionArray[currentIndex] = connection;
+			out_connectionArray[currentIndex] = connection;
 			currentIndex++;
 
 			if (currentIndex == maxCount)
