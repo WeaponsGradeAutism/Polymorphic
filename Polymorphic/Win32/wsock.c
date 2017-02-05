@@ -141,7 +141,7 @@ int closeConnection(POLYM_CONNECTION *connection)
 	}
 	switch (connection->info.mode)
 	{
-	case POLY_MODE_SERVICE:
+	case POLY_REALM_SERVICE:
 		free(connection->info.mode_info.service.serviceString);
 		break;
 	}
@@ -587,7 +587,7 @@ void initializeNewTCPConnection(POLYM_CONNECTION *connection)
 	connection->overlap.hEvent = NULL;
 	connection->byteCount = 0;
 	connection->flags = MSG_WAITALL;
-	connection->info.mode = POLY_MODE_UNINIT;
+	connection->info.mode = POLY_REALM_UNINIT;
 	connection->protocol = POLY_PROTO_TCP;
 	connection->addrtype = IPPROTO_IPV4;
 	InitializeCriticalSection(connection->connectionMutex);
@@ -652,7 +652,7 @@ void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO 
 	}
 
 	initializeNewTCPConnection(&connection);
-	connection.info.mode = POLY_MODE_PEER;
+	connection.info.mode = POLY_REALM_PEER;
 
 	*out_connectionInfo = &connection.info;
 
@@ -706,7 +706,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 
 			// OPTI: initializing connections may need to become multithreaded.
 			POLYM_CONNECTION *newConnectionPointer;
-			if (POLY_MODE_FAILED == initializeIncomingConnection(&connection, &connection.info, &newConnectionPointer))
+			if (POLY_REALM_FAILED == initializeIncomingConnection(&connection, &connection.info, &newConnectionPointer))
 			{
 				printf("CONNECTION FAILED.\n");
 				closeConnection(&connection);

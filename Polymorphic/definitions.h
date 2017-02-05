@@ -8,11 +8,11 @@
 #define POLY_PROTO_SMTP 4 // SMTP protocol
 
 //poly connection modes
-#define POLY_MODE_UNINIT -1 // A connection in an established but uninitialized state
-#define POLY_MODE_FAILED 0 // A connection that failed to initialize
-#define POLY_MODE_SERVICE 1 // A service connection
-#define POLY_MODE_PEER 2 // A peer connection
-#define POLY_MODE_CLIENT 3 // A client connection
+#define POLY_REALM_UNINIT -1 // A connection in an established but uninitialized state
+#define POLY_REALM_FAILED 0 // A connection that failed to initialize
+#define POLY_REALM_SERVICE 1 // A service connection
+#define POLY_REALM_PEER 2 // A peer connection
+#define POLY_REALM_CLIENT 3 // A client connection
 
 
 //poly protocol facts

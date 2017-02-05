@@ -8,7 +8,7 @@
 int sendGreeting(void *connection)
 {
 	if (sizeof(POLYM_GREETING) != sockSend(connection, POLYM_GREETING, sizeof(POLYM_GREETING)))
-		return POLY_MODE_FAILED;
+		return POLY_REALM_FAILED;
 	return 0;
 }
 
@@ -29,7 +29,7 @@ void initializeNewPeerInfo(POLYM_CONNECTION_INFO *connection_info, void *connect
 	int_array_init(&connection_info->mode_info.peer.status.outboundMessageQueue);
 
 	// set mode to peer
-	connection_info->mode = POLY_MODE_PEER;
+	connection_info->mode = POLY_REALM_PEER;
 
 	// add new peer to list
 	connection_info->mode_info.peer.peerID = addNewPeer(connection, out_connectionPointer);
@@ -44,27 +44,27 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 {
 
 	// send greeting
-	if (sendGreeting(connection) == POLY_MODE_FAILED)
+	if (sendGreeting(connection) == POLY_REALM_FAILED)
 	{
-		return POLY_MODE_FAILED;
+		return POLY_REALM_FAILED;
 	}
 
 	uint8_t buffer[8]; // create a re-usable buffer for operations
 
 	// attempt to recieve encryption setting
 	if (2 != sockRecv(connection, buffer, 2))
-		return POLY_MODE_FAILED;
+		return POLY_REALM_FAILED;
 
 	// handle encryption negotiation
 	if (getShortFromBuffer(buffer) != 0)
 	{
-		return POLY_MODE_FAILED; // TODO: encryption not yet implemented
+		return POLY_REALM_FAILED; // TODO: encryption not yet implemented
 	}
 
 	// attempt to recieve realm code
 	if (2 != sockRecv(connection, buffer, 2))
 	{
-		return POLY_MODE_FAILED;
+		return POLY_REALM_FAILED;
 	}
 
 	// 0 for service, anything else for peer.
@@ -73,26 +73,26 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		// this connection is a service
 
 		// initialize new service connection
-		connection_info->mode = POLY_MODE_SERVICE;
+		connection_info->mode = POLY_REALM_SERVICE;
 
 		//attempt to recieve service string size
 		if (2 != sockRecv(connection, buffer, 2))
 		{
-			return POLY_MODE_FAILED;
+			return POLY_REALM_FAILED;
 		}
 
 		// check validity of service string size, initialize string
 		int serviceStringSize = getShortFromBuffer(buffer);
 		if (serviceStringSize < 1)
 		{
-			return POLY_MODE_FAILED;
+			return POLY_REALM_FAILED;
 		}
 		connection_info->mode_info.service.serviceString = malloc(sizeof(uint8_t) * serviceStringSize);
 
 		//get the service string
 		if (serviceStringSize != sockRecv(connection, connection_info->mode_info.service.serviceString, serviceStringSize))
 		{
-			return POLY_MODE_FAILED;
+			return POLY_REALM_FAILED;
 		}
 
 		// attempt to add a new service to the internal list of service connections
@@ -103,7 +103,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		// TODO: better error handling
 		if (connection_info->mode_info.service.serviceID == -1)
 		{
-			return POLY_MODE_FAILED;
+			return POLY_REALM_FAILED;
 		}
 
 		// construct the last send buffer to send
@@ -115,10 +115,10 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		{
 			// if for some reason this fails, we need to remove the connection from the service list
 			removeService(connection_info->mode_info.service.serviceID);
-			return POLY_MODE_SERVICE; // do not return fail so that the connection isn't closed twice
+			return POLY_REALM_SERVICE; // do not return fail so that the connection isn't closed twice
 		}
 		else
-			return POLY_MODE_SERVICE;
+			return POLY_REALM_SERVICE;
 	}
 	else
 	{
@@ -134,10 +134,10 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		{
 			// if for some reason this fails, we'll need to dispose of the connection
 			removePeer(connection_info->mode_info.peer.peerID);
-			return POLY_MODE_FAILED;
+			return POLY_REALM_FAILED;
 		}
 
-		return POLY_MODE_PEER;
+		return POLY_REALM_PEER;
 	}
 }
 
@@ -211,12 +211,12 @@ void removeConnection(POLYM_CONNECTION_INFO *connection_info)
 	switch (connection_info->mode)
 	{
 
-	case POLY_MODE_SERVICE:
+	case POLY_REALM_SERVICE:
 		// close a service control connection
 		removeService(connection_info->mode_info.service.serviceID);
 		break;
 
-	case POLY_MODE_PEER:
+	case POLY_REALM_PEER:
 		// close a peer connection
 		removePeer(connection_info->mode_info.peer.peerID);
 		break;

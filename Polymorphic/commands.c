@@ -76,7 +76,7 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 
 	switch (connection_info->mode)
 	{
-	case POLY_MODE_SERVICE:
+	case POLY_REALM_SERVICE:
 
 		// recieve the connect info
 		if (0 != trySockRecv(connection, buffer, 8))
@@ -109,11 +109,11 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		if (0 != connectResult)
 			sendConnectErrorToService(connection, address, port, protocol, connectResult);
 		break;
-	case POLY_MODE_PEER:
+	case POLY_REALM_PEER:
 		// peers should not be telling us to connect to other peers. this is an error. disconnect.
 		sendDisconnect(connection, POLY_PROTO_ERROR_INVALID_COMMAND);
 		return;
-	case POLY_MODE_CLIENT:
+	case POLY_REALM_CLIENT:
 		// peers should not be telling us to connect to other peers. this is an error. disconnect.
 		sendDisconnect(connection, POLY_PROTO_ERROR_INVALID_COMMAND);
 		return;
@@ -175,7 +175,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	switch (connection_info->mode)
 	{
 
-	case POLY_MODE_SERVICE:
+	case POLY_REALM_SERVICE:
 	{
 
 		//TODO: add proper failure responses
@@ -197,7 +197,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		break;
 	}
 
-	case POLY_MODE_PEER:
+	case POLY_REALM_PEER:
 	{
 
 		//TODO: add proper failure responses
@@ -219,10 +219,10 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		break;
 	}
 
-	case POLY_MODE_CLIENT:
+	case POLY_REALM_CLIENT:
 	{
 
-		// TODO: this realm shouldn't be using this command. send error.
+		// TODO: This realm cannot use this command. Send error.
 
 	}
 
