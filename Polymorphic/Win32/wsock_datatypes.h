@@ -58,6 +58,8 @@ typedef struct {
 	uint8_t bufferMemory[2]; // memory storage for the buf element of WSABUF
 	POLYM_OVERLAPPED overlap; // reused overlapped info for listening event
 
+	int index; // used to keep track of position in connection array
+
 	
 } POLYM_CONNECTION; //TODO: rename to POLYM_CONNECTION
 
@@ -68,15 +70,10 @@ typedef struct {
 } CONNECTION_EVENT;
 
 typedef struct {
-	uint32_t size;      // bound of the internal array
-	uint32_t members;   // the number of used slots
-	uint32_t capacity;  // total available slots
-	POLYM_CONNECTION *data;     // array of connections we're storing
-} connection_vector;
-
-typedef struct {
-	connection_vector connections;
-	int_vector vacancies;
+	POLYM_CONNECTION **connections; // pointer to a POLYM_CONNECTION* array
+	int size; // the current size of the message array
+	int count; // the number of messages currently on the array
+	int nextIndex; // the next index to scan for openings in the array
 } connection_array;
 
 typedef struct {
@@ -87,19 +84,19 @@ typedef struct {
 } message_buffer;
 
 typedef struct {
-	message_buffer **messages; // pointer to a message_buffer array
+	message_buffer **messages; // pointer to a message_buffer* array
 	int size; // the current size of the message array
 	int count; // the number of messages currently on the array
-	int nextIndex; // the next index to be filled in the array
+	int nextIndex; // the next index to scan for openings in the array
 } message_buffer_array;
 
 void connection_array_init(connection_array *vector);
-void connection_array_init_capacity(connection_array *vector, uint32_t capacity);
-int connection_array_get_all(connection_array *vector, unsigned int maxCount, POLYM_CONNECTION **OUT_connectionArray);
-POLYM_CONNECTION* connection_array_get(connection_array *vector, uint32_t index);
-int connection_array_push(connection_array *vector, POLYM_CONNECTION connection, POLYM_CONNECTION **out_connectionPointer);
-int connection_array_delete(connection_array *vector, uint32_t index);
-void connection_array_trim(connection_array *vector);
+void connection_array_init_capacity(connection_array *vector, int size);
+int connection_array_push(connection_array *vector, POLYM_CONNECTION *connection, void **out_connectionPointer);
+POLYM_CONNECTION* connection_array_get(connection_array *vector, int index);
+int connection_array_get_all(connection_array *vector, int maxCount, POLYM_CONNECTION **OUT_connectionArray);
+void connection_array_free(connection_array *vector, int index);
+void connection_array_free_container(connection_array *vector);
 
 void message_buffer_init(message_buffer *buffer);
 

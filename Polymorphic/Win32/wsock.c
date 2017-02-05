@@ -258,7 +258,7 @@ void lockConnectionMutex(POLYM_CONNECTION *connection)
 ///<summary> Locks the synchronization object associated with a connection object, using its info object. </summary>
 void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 {
-		lockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
+	lockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
 }
 
 ///<summary> Unlocks the synchronization object associated with a connection object.</summary>
@@ -428,14 +428,14 @@ int addNewService(void* connection, void** out_connectionPointer)
 	strcat(serviceString, "|");
 	LeaveCriticalSection(&serviceStringCriticalSection);
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	int ret = connection_array_push(&serviceConnections, *(POLYM_CONNECTION*)connection, (POLYM_CONNECTION**)out_connectionPointer);
+	int ret = connection_array_push(&serviceConnections, (POLYM_CONNECTION*)connection, (POLYM_CONNECTION**)out_connectionPointer);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	return ret;
 }
 
 ///<summary> Removes the service from the list as specified by the service ID. </summary>
 ///<returns> Integer result code. </returns>
-int32_t removeService(uint16_t serviceID)
+int removeService(uint16_t serviceID)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
 	POLYM_CONNECTION* connection = connection_array_get(&serviceConnections, serviceID);
@@ -443,13 +443,10 @@ int32_t removeService(uint16_t serviceID)
 	if (connection = NULL)
 		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
 
-	int result = connection_array_delete(&serviceConnections, serviceID);
+	connection_array_free(&serviceConnections, serviceID);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	
-	if (result == 0)
-		return closeConnection(connection);
-	else
-		return result;
+	return closeConnection(connection);
 
 	rebuildServiceString();
 }
@@ -460,14 +457,14 @@ int32_t removeService(uint16_t serviceID)
 int addNewPeer(void* connection, void **out_connectionPointer)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
-	int ret = connection_array_push(&peerConnections, *(POLYM_CONNECTION*)connection, (POLYM_CONNECTION**)out_connectionPointer);
+	int ret = connection_array_push(&peerConnections, (POLYM_CONNECTION*)connection, (POLYM_CONNECTION**)out_connectionPointer);
 	LeaveCriticalSection(&peerConnectionsCriticalSection);
 	return ret;
 }
 
 ///<summary> Removes the peer from the list as specified by the peer ID. </summary>
 ///<returns> Integer result code. </returns>
-int32_t removePeer(uint16_t peerID)
+int removePeer(uint16_t peerID)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
 	POLYM_CONNECTION* connection = connection_array_get(&peerConnections, peerID);
@@ -475,13 +472,10 @@ int32_t removePeer(uint16_t peerID)
 	if (connection = NULL)
 		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
 
-	int result = connection_array_delete(&peerConnections, peerID);
+	connection_array_free(&peerConnections, peerID);
 	LeaveCriticalSection(&peerConnectionsCriticalSection);
 
-	if (result == 0)
-		return closeConnection(connection);
-	else
-		return result;
+	return closeConnection(connection);
 }
 
 ///<summary> Gets the connection object for the specified peer ID. </summary>

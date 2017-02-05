@@ -21,7 +21,7 @@ int sockSendAsync(void* connection, uint8_t *buffer, int length);
 void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **out_connectionInfo, uint8_t protocol);
 
 int addNewService(void* connection, void** out_connectionPointer);
-int32_t removeService(uint16_t serviceID);
+int removeService(uint16_t serviceID);
 int addNewPeer(void* connection, void **out_connectionPointer);
 int32_t removePeer(uint16_t peerID);
 int closeUnitializedConnection(void *connection);
