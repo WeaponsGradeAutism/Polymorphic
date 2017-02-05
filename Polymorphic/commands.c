@@ -222,7 +222,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_MODE_CLIENT:
 	{
 
-		// this realm shouldn't be using this command. send error.
+		// TODO: this realm shouldn't be using this command. send error.
 
 	}
 
