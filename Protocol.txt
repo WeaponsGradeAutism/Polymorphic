@@ -72,7 +72,7 @@ Greets with message "POLY v" with any number of arbitrary bytes afterward. Termi
 2-byte encryption request (0 for no encryption, anything else begins the connection with an encryption negotiation)
 (if enc)
 (end if enc)
-2-byte realm (0 for service, anything else is peer.)
+2-byte realm (0 for peer, 1 for service, 2 for client)
 (if service)
 2-byte service string size (non-zero)
 X-byte service string
@@ -189,7 +189,7 @@ command only
 
 
 
-0008: MESSAGE (s==>p p==>p p==>s c==>s s==>c)
+0008: MESSAGE (s==>p p==>p p==>s)
 The basic building block of POLY. Sends messages from services from peer to peer. 0 is local peer.
 
 0: 2-byte source/destination peer
@@ -419,7 +419,7 @@ Why not GNUnet, Freenet, ZeroNet or IPFS?
 
 GNUnet, Freenet, ZeroNet, and IPFS have a few flaws, in my opinion. Firstly, they are all far too concerned with one application: file sharing. POLY intends to be an open framework for more flexible, dynamic p2p applications. ZeroNet relies on static BitTorrent content hosting. 
 
-Next, the GNUnet and Freenet systems are too focused on anonymity and censorship-resistance. Make no mistake: these two things are quite important, but these protocols put these concerns front and center, and above all else. For what they seek to achieve, this may be pragmatic. However, POLY is more concerned with building a performant, flexible platform. Standardized anonymization and encryption tools will be available for services to take advantage of, but advanced strategies will require the service itself to implement. The goal of POLY is to make a p2p platform that can compete with the server/client model in terms of performance and scalability. Anonymity and censorship-resistance are secondary concerns.
+Next, the GNUnet and Freenet systems are too focused on anonymity and censorship-resistance. Make no mistake: these two things are quite important, but these protocols put these concerns front and center, and above all else. For what they seek to achieve, this may be pragmatic. However, POLY is more concerned with building a performant, flexible platform. Standardized anonymization and encryption tools will be available for services to take advantage of, but advanced strategies will require the service itself to implement. The goal of POLY is to make a p2p platform that can compete with the server/client model in terms of performance, scalability, and flexibility. Anonymity and censorship-resistance are secondary concerns.
 
 POLY seeks to enable developers to create services that do not rely on centralization, and thus do not have vulnerabilities to DDoS attacks, and whose dataset is not in the hands of a single individual or institution.
 

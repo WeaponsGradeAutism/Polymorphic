@@ -156,14 +156,23 @@ void sendMessageErrorToPeer(void* connection, uint16_t serviceID, uint16_t servi
 }
 
 
-int sendMessage(uint16_t peerID, uint16_t sourceID, uint16_t destID, uint8_t *message, int totalLength)
+int sendMessage(int realm, uint16_t peerID, uint16_t sourceID, uint16_t destID, uint8_t *message, int totalLength)
 {
 
 	void *connection;
 
-	connection = getConnectionFromPeerID(peerID);
-	if (connection == NULL)
-		return POLY_PROTO_ERROR_PEER_DOES_NOT_EXIST;
+	if (realm == POLY_REALM_SERVICE)
+	{
+		connection = getConnectionFromPeerID(peerID);
+		if (connection == NULL)
+			return POLY_PROTO_ERROR_PEER_DOES_NOT_EXIST;
+	}
+	else if (realm == POLY_REALM_PEER)
+	{
+		connection = getConnectionFromServiceID(destID);
+		if (connection == NULL)
+			return POLY_PROTO_ERROR_PEER_DOES_NOT_EXIST;
+	}
 	
 	sockSendAsync(connection, message, totalLength);
 	return 0;
@@ -192,7 +201,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		insertShortIntoBuffer(message[2], connection_info->realm_info.service.serviceID);
 		if (0 != trySockRecv(connection, message[8], messageLength)) return;
 
-		sendMessage(peerID, connection_info->realm_info.service.serviceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
+		sendMessage(POLY_REALM_SERVICE, peerID, connection_info->realm_info.service.serviceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
 
 		break;
 	}
@@ -214,7 +223,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		insertShortIntoBuffer(message, connection_info->realm_info.peer.peerID);
 		if (0 != trySockRecv(connection, message[8], messageLength)) return;
 
-		sendMessage(connection_info->realm_info.peer.peerID, sourceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
+		sendMessage(POLY_REALM_PEER, connection_info->realm_info.peer.peerID, sourceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
 
 		break;
 	}
