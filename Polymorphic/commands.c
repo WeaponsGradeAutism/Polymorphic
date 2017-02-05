@@ -155,27 +155,24 @@ void sendMessageErrorToPeer(void* connection, uint16_t serviceID, uint16_t servi
 	sockSendAsync(connection, buffer, 6);
 }
 
-
-int sendMessage(int realm, uint16_t peerID, uint16_t sourceID, uint16_t destID, uint8_t *message, int totalLength)
+void sendMessageIn(uint16_t destID, uint8_t *message, int totalLength)
 {
-
 	void *connection;
+	connection = getConnectionFromServiceID(destID);
+	if (connection == NULL)
+		return; //TODO: Send error code
 
-	if (realm == POLY_REALM_SERVICE)
-	{
-		connection = getConnectionFromPeerID(peerID);
-		if (connection == NULL)
-			return POLY_PROTO_ERROR_PEER_DOES_NOT_EXIST;
-	}
-	else if (realm == POLY_REALM_PEER)
-	{
-		connection = getConnectionFromServiceID(destID);
-		if (connection == NULL)
-			return POLY_PROTO_ERROR_PEER_DOES_NOT_EXIST;
-	}
-	
 	sockSendAsync(connection, message, totalLength);
-	return 0;
+}
+
+void sendMessageOut(uint16_t peerID, uint8_t *message, int totalLength)
+{
+	void *connection;
+	connection = getConnectionFromPeerID(peerID);
+	if (connection == NULL)
+		return; //TODO: Send error code
+
+	sockSendAsync(connection, message, totalLength);
 }
 
 void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
@@ -189,19 +186,19 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 
 		//TODO: add proper failure responses
 		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE]; // the max possible size of a message command
-		uint16_t peerID, destID, messageLength;
+		uint16_t peerID, messageLength;
 
-		if (0 != trySockRecv(connection, message, 8)) return; 
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 8)) return;
 		else
 		{
-			peerID = getShortFromBuffer(message);
-			destID = getShortFromBuffer(message[4]);
-			messageLength = getShortFromBuffer(message[6]);
+			peerID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID]);
+			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(message[2], connection_info->realm_info.service.serviceID);
-		if (0 != trySockRecv(connection, message[8], messageLength)) return;
+		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE);
+		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength)) return;
 
-		sendMessage(POLY_REALM_SERVICE, peerID, connection_info->realm_info.service.serviceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
+		sendMessageOut(peerID, message, 10 + messageLength);
 
 		break;
 	}
@@ -211,19 +208,19 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 
 		//TODO: add proper failure responses
 		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE]; // the max possible size of a message command
-		uint16_t sourceID, destID, messageLength;
+		uint16_t destID, messageLength;
 
-		if (0 != trySockRecv(connection, message, 8)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 8)) return;
 		else
 		{
-			sourceID = getShortFromBuffer(message[2]);
-			destID = getShortFromBuffer(message[4]);
-			messageLength = getShortFromBuffer(message[6]);
+			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_DESTINATION_ID]);
+			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(message, connection_info->realm_info.peer.peerID);
-		if (0 != trySockRecv(connection, message[8], messageLength)) return;
+		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE);
+		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID], connection_info->realm_info.peer.peerID);
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength)) return;
 
-		sendMessage(POLY_REALM_PEER, connection_info->realm_info.peer.peerID, sourceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
+		sendMessageIn(destID, message, 10 + messageLength);
 
 		break;
 	}
@@ -237,6 +234,129 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 
 	default:
 		break;
+	}
+}
+
+void sendMessageService(uint16_t destID, uint8_t *message, int totalLength)
+{
+	void *connection;
+	connection = getConnectionFromServiceID(destID);
+	if (connection == NULL)
+		return; //TODO: Send error code.
+
+	sockSendAsync(connection, message, totalLength);
+}
+
+void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info)
+{
+	switch (connection_info->realm)
+	{
+
+	case POLY_REALM_SERVICE:
+	{
+
+		//TODO: add proper failure responses
+		uint8_t message[POLY_COMMAND_MESSAGE_SERVICE_MAX_SIZE]; // the max possible size of a message command
+		uint16_t destID, messageLength;
+
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 6)) return;
+		else
+		{
+			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_DESTINATION_ID]);
+			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH]);
+		}
+		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_SERVICE);
+		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE], messageLength)) return;
+
+		sendMessageService(destID, message, 8 + messageLength);
+
+		break;
+	}
+
+	case POLY_REALM_PEER:
+	{
+
+		// TODO: This realm cannot use this command. Send error.
+
+	}
+
+	case POLY_REALM_CLIENT:
+	{
+
+		// TODO: This realm cannot use this command. Send error.
+
+	}
+
+	default:
+		break;
+	}
+}
+
+void sendMessageClientIn(uint16_t destID, uint8_t *message, int totalLength)
+{
+	void *connection;
+	connection = getConnectionFromClientID(destID);
+	if (connection == NULL)
+		return; //TODO: Send error code.
+
+	sockSendAsync(connection, message, totalLength);
+}
+
+void sendMessageClientOut(uint16_t destID, uint8_t *message, int totalLength)
+{
+	void *connection;
+	connection = getConnectionFromServiceID(destID);
+	if (connection == NULL)
+		return; //TODO: Send error code.
+
+	sockSendAsync(connection, message, totalLength);
+}
+
+void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
+{
+
+	switch (connection_info->realm)
+	{
+	case POLY_REALM_SERVICE:
+	{
+		//TODO: add proper failure responses
+		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE]; // the max possible size of a message command
+		uint16_t destID, messageLength;
+
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 6)) return;
+		else
+		{
+			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
+			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH]);
+		}
+		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_CLIENT);
+		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength)) return;
+
+		sendMessageClientIn(destID, message, 8 + messageLength);
+		break;
+
+	}
+	case POLY_REALM_CLIENT:
+	{
+		//TODO: add proper failure responses
+		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE]; // the max possible size of a message command
+		uint16_t destID, messageLength;
+
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 6)) return;
+		else
+		{
+			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
+			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH]);
+		}
+		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_CLIENT);
+		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->realm_info.client.clientID);
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength)) return;
+
+		sendMessageClientOut(destID, message, 8 + messageLength);
+		break;
+	}
 	}
 }
 
@@ -254,8 +374,13 @@ void processCommand(void *connection, uint8_t *command, POLYM_CONNECTION_INFO *c
 		break;
 	case POLY_COMMAND_MESSAGE:
 		recvMessage(connection, connection_info);
+		break;
+	case POLY_COMMAND_MESSAGE_SERVICE:
+		recvMessageService(connection, connection_info);
+		break;
 	case POLY_COMMAND_DISCONNECT:
 		//recvDisconnect(connection_info);
+		break;
 
 	default:
 		break;

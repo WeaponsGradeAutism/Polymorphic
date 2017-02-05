@@ -12,6 +12,7 @@
 typedef struct
 {
 	int_array connectedServices; // services that are currently using this peer connection
+	//TODO: implement tracking, prune connection when no services are connected for some time
 	int_array outboundMessageQueue; // a list of services that have messages queued to be sent to this peer
 } POLYM_PEER_STATUS;
 

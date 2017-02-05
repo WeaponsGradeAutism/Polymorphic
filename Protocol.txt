@@ -192,34 +192,37 @@ command only
 0008: MESSAGE (s==>p p==>p p==>s)
 The basic building block of POLY. Sends messages from services from peer to peer. 0 is local peer.
 
-0: 2-byte source/destination peer
-2: 2-byte source service id
-4: 2-byte destination service id
-6: 2-byte message length
-8: X-byte message
-8 - 65,548: END
+0: 2-byte command code
+2: 2-byte source/destination peer id
+4: 2-byte source service id
+6: 2-byte destination service id
+8: 2-byte message length
+10: X-byte message
+10 - 65,546: END
 
 
 
 MESSAGE_SERVICE_TO_SERVICE
 Allows services to send messages to each other.
 
-0: 2-byte source service id
-2: 2-byte destination service id
-4: 2-byte message length
-6: X-byte message
-6 - 65,546: END
+0: 2-byte command code
+2: 2-byte source service id
+4: 2-byte destination service id
+6: 2-byte message length
+8: X-byte message
+8 - 65,544: END
 
 
 
 MESSAGE_SERVICE_TO_CLIENT
 Allows clients to send messages to services and vice versa.
 
-0: 2-byte source service/client id
-2: 2-byte destination service/client id
-4: 2-byte message length
-6: X-byte message
-6 - 65,546: END
+0: 2-byte command code
+2: 2-byte source service/client id
+4: 2-byte destination service/client id
+6: 2-byte message length
+8: X-byte message
+8 - 65,544: END
 
 
 
