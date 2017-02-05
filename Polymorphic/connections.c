@@ -25,21 +25,21 @@ void initializeNewPeerInfo(POLYM_CONNECTION_INFO *connection_info, void *connect
 {
 
 	// initialize peer status struct
-	int_array_init(&connection_info->mode_info.peer.status.connectedServices);
-	int_array_init(&connection_info->mode_info.peer.status.outboundMessageQueue);
+	int_array_init(&connection_info->realm_info.peer.status.connectedServices);
+	int_array_init(&connection_info->realm_info.peer.status.outboundMessageQueue);
 
-	// set mode to peer
-	connection_info->mode = POLY_REALM_PEER;
+	// set realm to peer
+	connection_info->realm = POLY_REALM_PEER;
 
 	// add new peer to list
-	connection_info->mode_info.peer.peerID = addNewPeer(connection, out_connectionPointer);
+	connection_info->realm_info.peer.peerID = addNewPeer(connection, out_connectionPointer);
 }
 
 ///<summary> Completely initializes a new POLY connection that has been recieved. Uses synchronous reads and sends. </summary>
 ///<param name='connection'> Connection socket for the incoming connection. </param>
 ///<param name='connection_info'> The connection info object associated with this connection. </param>
 ///<param name='out_connectionPointer'> (OUT) The connection object for the newly initialized connection. </param>
-///<returns> Error code on failure, connection mode on success. <returns>
+///<returns> Error code on failure, connection realm on success. <returns>
 int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connection_info, void** out_connectionPointer)
 {
 
@@ -73,7 +73,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		// this connection is a service
 
 		// initialize new service connection
-		connection_info->mode = POLY_REALM_SERVICE;
+		connection_info->realm = POLY_REALM_SERVICE;
 
 		//attempt to recieve service string size
 		if (2 != sockRecv(connection, buffer, 2))
@@ -87,21 +87,21 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		{
 			return POLY_REALM_FAILED;
 		}
-		connection_info->mode_info.service.serviceString = malloc(sizeof(uint8_t) * serviceStringSize);
+		connection_info->realm_info.service.serviceString = malloc(sizeof(uint8_t) * serviceStringSize);
 
 		//get the service string
-		if (serviceStringSize != sockRecv(connection, connection_info->mode_info.service.serviceString, serviceStringSize))
+		if (serviceStringSize != sockRecv(connection, connection_info->realm_info.service.serviceString, serviceStringSize))
 		{
 			return POLY_REALM_FAILED;
 		}
 
 		// attempt to add a new service to the internal list of service connections
 		// TODO: require user approval
-		connection_info->mode_info.service.serviceID = addNewService(connection, out_connectionPointer);
+		connection_info->realm_info.service.serviceID = addNewService(connection, out_connectionPointer);
 
 		// if adding new service fails, send error code and abort.
 		// TODO: better error handling
-		if (connection_info->mode_info.service.serviceID == -1)
+		if (connection_info->realm_info.service.serviceID == -1)
 		{
 			return POLY_REALM_FAILED;
 		}
@@ -114,7 +114,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		if (2 != sockSend(connection, buffer, 8))
 		{
 			// if for some reason this fails, we need to remove the connection from the service list
-			removeService(connection_info->mode_info.service.serviceID);
+			removeService(connection_info->realm_info.service.serviceID);
 			return POLY_REALM_SERVICE; // do not return fail so that the connection isn't closed twice
 		}
 		else
@@ -133,7 +133,7 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		if (2 != sockSend(connection, buffer, 2)) //send the success code and peer ID
 		{
 			// if for some reason this fails, we'll need to dispose of the connection
-			removePeer(connection_info->mode_info.peer.peerID);
+			removePeer(connection_info->realm_info.peer.peerID);
 			return POLY_REALM_FAILED;
 		}
 
@@ -208,17 +208,17 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 ///<summary> Remove the supplied service from the connection list and close it. </summary>
 void removeConnection(POLYM_CONNECTION_INFO *connection_info)
 {
-	switch (connection_info->mode)
+	switch (connection_info->realm)
 	{
 
 	case POLY_REALM_SERVICE:
 		// close a service control connection
-		removeService(connection_info->mode_info.service.serviceID);
+		removeService(connection_info->realm_info.service.serviceID);
 		break;
 
 	case POLY_REALM_PEER:
 		// close a peer connection
-		removePeer(connection_info->mode_info.peer.peerID);
+		removePeer(connection_info->realm_info.peer.peerID);
 		break;
 
 	default:

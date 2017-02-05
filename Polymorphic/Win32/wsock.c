@@ -139,10 +139,10 @@ int closeConnection(POLYM_CONNECTION *connection)
 		DeleteTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, INVALID_HANDLE_VALUE);
 		break;
 	}
-	switch (connection->info.mode)
+	switch (connection->info.realm)
 	{
 	case POLY_REALM_SERVICE:
-		free(connection->info.mode_info.service.serviceString);
+		free(connection->info.realm_info.service.serviceString);
 		break;
 	}
 	free(connection->buffer.buf);
@@ -260,7 +260,7 @@ void lockConnectionMutex(POLYM_CONNECTION *connection)
 ///<summary> Locks the synchronization object associated with a connection object, using its info object. </summary>
 void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 {
-	lockConnectionMutex(connection_array_get(&peerConnections, info->mode_info.peer.peerID));
+	lockConnectionMutex(connection_array_get(&peerConnections, info->realm_info.peer.peerID));
 }
 
 ///<summary> Unlocks the synchronization object associated with a connection object.</summary>
@@ -272,7 +272,7 @@ void unlockConnectionMutex(POLYM_CONNECTION *connection)
 ///<summary> Unlocks the synchronization object associated with a connection object, using its info object. </summary>
 void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 {
-	unlockConnectionMutex(connection_array_get(&serviceConnections, info->mode_info.service.serviceID));
+	unlockConnectionMutex(connection_array_get(&serviceConnections, info->realm_info.service.serviceID));
 }
 
 
@@ -359,7 +359,7 @@ int serviceStringExists(char* string)
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	for (int x = 0; x < arraySize; x++) 
 	{
-		if (strcmp(string, connections[x]->info.mode_info.service.serviceString))
+		if (strcmp(string, connections[x]->info.realm_info.service.serviceString))
 			return 1;
 	}
 	return 0;
@@ -424,7 +424,7 @@ void rebuildServiceString()
 	strcpy(serviceString, "");
 	for (int x = 0; x < connectionCount; x++)
 	{
-		strcat(serviceString, services[x]->info.mode_info.service.serviceString);
+		strcat(serviceString, services[x]->info.realm_info.service.serviceString);
 		strcat(serviceString, "|");
 	}
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
@@ -437,7 +437,7 @@ int addNewService(void* connection, void** out_connectionPointer)
 {
 	// TODO: need to fail if we have USHORT_MAX services without any vacancies. needs to return either negative error code or a value within the bounds of a USHORT.
 	EnterCriticalSection(&serviceStringCriticalSection);
-	strcat(serviceString, ((POLYM_CONNECTION*)connection)->info.mode_info.service.serviceString);
+	strcat(serviceString, ((POLYM_CONNECTION*)connection)->info.realm_info.service.serviceString);
 	strcat(serviceString, "|");
 	LeaveCriticalSection(&serviceStringCriticalSection);
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
@@ -587,7 +587,7 @@ void initializeNewTCPConnection(POLYM_CONNECTION *connection)
 	connection->overlap.hEvent = NULL;
 	connection->byteCount = 0;
 	connection->flags = MSG_WAITALL;
-	connection->info.mode = POLY_REALM_UNINIT;
+	connection->info.realm = POLY_REALM_UNINIT;
 	connection->protocol = POLY_PROTO_TCP;
 	connection->addrtype = IPPROTO_IPV4;
 	InitializeCriticalSection(connection->connectionMutex);
@@ -652,12 +652,12 @@ void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO 
 	}
 
 	initializeNewTCPConnection(&connection);
-	connection.info.mode = POLY_REALM_PEER;
+	connection.info.realm = POLY_REALM_PEER;
 
 	*out_connectionInfo = &connection.info;
 
 	POLYM_CONNECTION *connectionPointer;
-	connection.info.mode_info.peer.peerID = addNewPeer(&connection, &connectionPointer);
+	connection.info.realm_info.peer.peerID = addNewPeer(&connection, &connectionPointer);
 	return connectionPointer;
 }
 

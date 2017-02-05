@@ -7,7 +7,7 @@
 #define POLY_PROTO_HTTPS 3 // HTTPS protocol
 #define POLY_PROTO_SMTP 4 // SMTP protocol
 
-//poly connection modes
+//poly connection realms
 #define POLY_REALM_UNINIT -1 // A connection in an established but uninitialized state
 #define POLY_REALM_FAILED 0 // A connection that failed to initialize
 #define POLY_REALM_SERVICE 1 // A service connection

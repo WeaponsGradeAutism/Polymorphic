@@ -7,7 +7,7 @@
 #define POLYM_SERVICE_MAX_PEER_CONNECTIONS 100
 #define POLYM_PEER_MAX_SERVICE_CONNECTIONS 20
 
-// mode specific connection state; initialized in connections.c when connections are initialized
+// realm specific connection state; initialized in connections.c when connections are initialized
 // Data is MUTABLE.
 typedef struct
 {
@@ -20,7 +20,7 @@ typedef struct
 	int_array connectedPeers; // services that are currently using this peer connection
 } POLYM_SERVICE_STATUS;
 
-// mode specific connection info; initialized in connections.c when connections are initialized
+// realm specific connection info; initialized in connections.c when connections are initialized
 typedef struct
 {
 	POLYM_SERVICE_STATUS status;
@@ -47,14 +47,14 @@ typedef struct
 
 typedef struct {
 	
-	uint8_t mode; // is this socket connected to a local service or a peer? POLY_REALM_SERVICE or POLY_REALM_PEER
-	uint16_t connectionID; // the ID of the given connection on its mode
+	uint8_t realm; // is this socket connected to a local service or a peer? POLY_REALM_SERVICE or POLY_REALM_PEER
+	uint16_t connectionID; // the ID of the given connection on its realm
 
 	union info // connection type specific information
 	{
 		POLYM_SERVICE_INFO service;
 		POLYM_PEER_INFO peer;
 		POLYM_CLIENT_INFO client;
-	} mode_info;
+	} realm_info;
 
 } POLYM_CONNECTION_INFO;

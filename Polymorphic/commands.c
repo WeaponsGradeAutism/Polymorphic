@@ -74,7 +74,7 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 
 	uint8_t buffer[8];
 
-	switch (connection_info->mode)
+	switch (connection_info->realm)
 	{
 	case POLY_REALM_SERVICE:
 
@@ -172,7 +172,7 @@ int sendMessage(uint16_t peerID, uint16_t sourceID, uint16_t destID, uint8_t *me
 void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 {
 
-	switch (connection_info->mode)
+	switch (connection_info->realm)
 	{
 
 	case POLY_REALM_SERVICE:
@@ -189,10 +189,10 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			destID = getShortFromBuffer(message[4]);
 			messageLength = getShortFromBuffer(message[6]);
 		}
-		insertShortIntoBuffer(message[2], connection_info->mode_info.service.serviceID);
+		insertShortIntoBuffer(message[2], connection_info->realm_info.service.serviceID);
 		if (0 != trySockRecv(connection, message[8], messageLength)) return;
 
-		sendMessage(peerID, connection_info->mode_info.service.serviceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
+		sendMessage(peerID, connection_info->realm_info.service.serviceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
 
 		break;
 	}
@@ -211,10 +211,10 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			destID = getShortFromBuffer(message[4]);
 			messageLength = getShortFromBuffer(message[6]);
 		}
-		insertShortIntoBuffer(message, connection_info->mode_info.peer.peerID);
+		insertShortIntoBuffer(message, connection_info->realm_info.peer.peerID);
 		if (0 != trySockRecv(connection, message[8], messageLength)) return;
 
-		sendMessage(connection_info->mode_info.peer.peerID, sourceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
+		sendMessage(connection_info->realm_info.peer.peerID, sourceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
 
 		break;
 	}
