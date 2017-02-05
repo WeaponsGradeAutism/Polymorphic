@@ -20,8 +20,10 @@ SOCKET acceptSocket = INVALID_SOCKET;
 //multi-threaded vaiables
 connection_array peerConnections; // stores peer connections by ID
 CRITICAL_SECTION peerConnectionsCriticalSection; // sync object
-connection_array serviceConnections; // stores main service connections by ID
+connection_array serviceConnections; // stores service connections by ID
 CRITICAL_SECTION serviceConnectionsCriticalSection; // sync object
+connection_array clientConnections; // stores client connections by ID
+CRITICAL_SECTION clientConnectionsCriticalSection; // sync object
 message_buffer_array messageSpace; // stores main service connections by ID
 CRITICAL_SECTION messageSpaceCriticalSection; // sync object
 char serviceString[65536]; // stores the services string for this peer
@@ -339,13 +341,13 @@ int closeWorkerThreads(int count)
 }
 
 ///<summary> Gets the info object associated with the specified service ID. </summary>
-POLYM_CONNECTION_INFO* getServiceConnectionInfo(int service_ID)
+/*POLYM_CONNECTION_INFO* getServiceConnectionInfo(int service_ID)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
 	POLYM_CONNECTION_INFO *ret = &connection_array_get(&serviceConnections, service_ID)->info;
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	return ret;
-}
+}*/
 
 ///<summary> Checks if the given service string is present in any of the connected services. </summary>
 ///<returns> Returns 1 on exact match, 0 otherwise. </returns>
@@ -377,11 +379,22 @@ int getCurrentServiceConnections(void** OUT_connectionArray, unsigned int maxCou
 ///<summary> Returns an array of pointers to the connection objects for all connected peers. </summary>
 ///<param name="maxCount"> The maximum number of peers to be retrieved. </param>
 ///<returns> Returns the number of peers fetched. </returns>
-int getCurrentPeerConnections(void** OUT_connectionArray, uint32_t maxCount)
+int getCurrentPeerConnections(void** OUT_connectionArray, unsigned int maxCount)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
 	int ret = connection_array_get_all(&peerConnections, maxCount, (POLYM_CONNECTION**)OUT_connectionArray);
 	LeaveCriticalSection(&peerConnectionsCriticalSection);
+	return ret;
+}
+
+///<summary> Returns an array of pointers to the connection objects for all connected clients. </summary>
+///<param name="maxCount"> The maximum number of clients to be retrieved. </param>
+///<returns> Returns the number of clients fetched. </returns>
+int getCurrentClientConnections(void** OUT_connectionArray, unsigned int maxCount)
+{
+	EnterCriticalSection(&clientConnectionsCriticalSection);
+	int ret = connection_array_get_all(&clientConnections, maxCount, (POLYM_CONNECTION**)OUT_connectionArray);
+	LeaveCriticalSection(&clientConnectionsCriticalSection);
 	return ret;
 }
 
@@ -478,6 +491,33 @@ int removePeer(uint16_t peerID)
 	return closeConnection(connection);
 }
 
+///<summary> Adds the supplied cleint to the client list. </summary>
+///<param name="out_connectionPointer"> (OUT) The connection object added to the client list. </param>
+///<returns> The index value of the element added. </return>
+int addNewClient(void* connection, void **out_connectionPointer)
+{
+	EnterCriticalSection(&clientConnectionsCriticalSection);
+	int ret = connection_array_push(&clientConnections, (POLYM_CONNECTION*)connection, (POLYM_CONNECTION**)out_connectionPointer);
+	LeaveCriticalSection(&clientConnectionsCriticalSection);
+	return ret;
+}
+
+///<summary> Removes the client from the list as specified by the client ID. </summary>
+///<returns> Integer result code. </returns>
+int removeClient(uint16_t clientID)
+{
+	EnterCriticalSection(&clientConnectionsCriticalSection);
+	POLYM_CONNECTION* connection = connection_array_get(&clientConnections, clientID);
+
+	if (connection = NULL)
+		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
+
+	connection_array_free(&clientConnections, clientID);
+	LeaveCriticalSection(&clientConnectionsCriticalSection);
+
+	return closeConnection(connection);
+}
+
 ///<summary> Gets the connection object for the specified peer ID. </summary>
 void* getConnectionFromPeerID(uint16_t peerID)
 {
@@ -490,10 +530,19 @@ void* getConnectionFromPeerID(uint16_t peerID)
 ///<summary> Gets the connection object for the specified service ID. </summary>
 void* getConnectionFromServiceID(uint16_t serviceID)
 {
-		EnterCriticalSection(&serviceConnectionsCriticalSection);
-		void *ret = connection_array_get(&serviceConnections, serviceID);
-		LeaveCriticalSection(&serviceConnectionsCriticalSection);
-		return ret;
+	EnterCriticalSection(&serviceConnectionsCriticalSection);
+	void *ret = connection_array_get(&serviceConnections, serviceID);
+	LeaveCriticalSection(&serviceConnectionsCriticalSection);
+	return ret;
+}
+
+///<summary> Gets the connection object for the specified client ID. </summary>
+void* getConnectionFromClientID(uint16_t clientID)
+{
+	EnterCriticalSection(&clientConnectionsCriticalSection);
+	void *ret = connection_array_get(&clientConnections, clientID);
+	LeaveCriticalSection(&clientConnectionsCriticalSection);
+	return ret;
 }
 
 ///<summary> Gets the connection info object from the given socket reference. </summary>
@@ -682,16 +731,16 @@ int startListenSocket(char* port)
 
 	InitializeCriticalSection(&peerConnectionsCriticalSection);
 	InitializeCriticalSection(&serviceConnectionsCriticalSection);
+	InitializeCriticalSection(&serviceConnectionsCriticalSection);
 	InitializeCriticalSection(&serviceStringCriticalSection);
 	InitializeCriticalSection(&messageSpaceCriticalSection);
 	InitializeCriticalSection(&numWorkerThreadsCriticalSection);
 
 	struct addrinfo *result = NULL, *ptr = NULL, hints;
 
-	//RAND_poll(); TODO
-
-	connection_array_init(&serviceConnections);
 	connection_array_init(&peerConnections);
+	connection_array_init(&serviceConnections);
+	connection_array_init(&clientConnections);
 	message_buffer_array_init(&messageSpace, 100);
 
 	ZeroMemory(&hints, sizeof(hints));

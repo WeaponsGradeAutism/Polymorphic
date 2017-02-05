@@ -7,23 +7,6 @@
 #define POLYM_SERVICE_MAX_PEER_CONNECTIONS 100
 #define POLYM_PEER_MAX_SERVICE_CONNECTIONS 20
 
-
-
-// mode specific connection info; initialized in connections.c when connections are initialized
-typedef struct
-{
-	uint16_t serviceID; // the id # of the service this is running
-	uint8_t serviceKey[4]; // key given to service on initialization
-	char* serviceString; // the string that defines this service
-} POLYM_SERVICE_INFO;
-
-typedef struct
-{
-	uint16_t peerID; // we'll fill this out later
-} POLYM_PEER_INFO;
-
-
-
 // mode specific connection state; initialized in connections.c when connections are initialized
 // Data is MUTABLE.
 typedef struct
@@ -37,6 +20,25 @@ typedef struct
 	int_array connectedPeers; // services that are currently using this peer connection
 } POLYM_SERVICE_STATUS;
 
+// mode specific connection info; initialized in connections.c when connections are initialized
+typedef struct
+{
+	POLYM_SERVICE_STATUS status;
+	uint16_t serviceID; // the id # of the service this is running
+	uint8_t serviceKey[4]; // key given to service on initialization
+	char* serviceString; // the string that defines this service
+} POLYM_SERVICE_INFO;
+
+typedef struct
+{
+	POLYM_PEER_STATUS status;
+	uint16_t peerID; // we'll fill this out later
+} POLYM_PEER_INFO;
+
+typedef struct
+{
+	uint16_t clientID; // we'll fill this out later
+} POLYM_CLIENT_INFO;
 
 
 // Connection info structure. Contains conneciton info shared between the socket implementation and the commands implementation.
@@ -52,12 +54,7 @@ typedef struct {
 	{
 		POLYM_SERVICE_INFO service;
 		POLYM_PEER_INFO peer;
+		POLYM_CLIENT_INFO client;
 	} mode_info;
-
-	union status // connection type specific status
-	{
-		POLYM_PEER_STATUS peer;
-		POLYM_SERVICE_STATUS service;
-	} mode_status;
 
 } POLYM_CONNECTION_INFO;

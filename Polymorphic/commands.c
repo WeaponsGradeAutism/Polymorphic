@@ -113,19 +113,12 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		// peers should not be telling us to connect to other peers. this is an error. disconnect.
 		sendDisconnect(connection, POLY_PROTO_ERROR_INVALID_COMMAND);
 		return;
+	case POLY_MODE_CLIENT:
+		// peers should not be telling us to connect to other peers. this is an error. disconnect.
+		sendDisconnect(connection, POLY_PROTO_ERROR_INVALID_COMMAND);
+		return;
 	}
 
-}
-
-int sendMessageToPeerID(uint16_t peerID, uint8_t *message, uint32_t length)
-{
-	void *connection = getConnectionFromPeerID(peerID);
-
-	if (connection == NULL)
-		return POLY_PROTO_ERROR_PEER_DOES_NOT_EXIST;
-
-	sockSendAsync(connection, message, length);
-	return 0;
 }
 
 void sendMessageErrorToService(void* connection, uint16_t peerID, uint16_t errorCode)
@@ -163,27 +156,17 @@ void sendMessageErrorToPeer(void* connection, uint16_t serviceID, uint16_t servi
 }
 
 
-// takes a connection and a partially filled out service to peer message, finishes it, and sends it.
-void sendPeerMessage(void* connection, uint8_t* peerToPeerMessage)
+int sendMessage(uint16_t peerID, uint16_t sourceID, uint16_t destID, uint8_t *message, int totalLength)
 {
-	uint8_t buffer[2];
 
-	if (0 != trySockRecv(connection, buffer, 2))
-		return; // attempt to recieve destination peer ID count, return if fail.
+	void *connection;
 
-	uint16_t destPeerID = getShortFromBuffer(buffer);
-
-	if (0 != trySockRecv(connection, &peerToPeerMessage[4], 6))
-		return; // attempt to recieve the static header
-
-	uint16_t messageLength = getShortFromBuffer(&peerToPeerMessage[8]); // get the message feame length. so we can create an appropriately sized buffer
-
-	if (0 != trySockRecv(connection, &peerToPeerMessage[10], messageLength))
-		return; // attempt to recieve messageLength, return if fail.
-
-	uint32_t sendResult = sendMessageToPeerID(destPeerID, peerToPeerMessage, messageLength + 10);
-	if (0 != sendResult)
-		sendMessageErrorToService(connection, destPeerID, sendResult);
+	connection = getConnectionFromPeerID(peerID);
+	if (connection == NULL)
+		return POLY_PROTO_ERROR_PEER_DOES_NOT_EXIST;
+	
+	sockSendAsync(connection, message, totalLength);
+	return 0;
 }
 
 void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
@@ -195,13 +178,21 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_MODE_SERVICE:
 	{
 
-		uint8_t peerToPeerMessage[65536 + 10]; // the max possible size of a peer->peer message command
+		//TODO: add proper failure responses
+		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE]; // the max possible size of a message command
+		uint16_t peerID, destID, messageLength;
 
-		insertShortIntoBuffer(peerToPeerMessage, connection_info->mode_info.service.serviceID);
-		peerToPeerMessage[2] = 0;
-		peerToPeerMessage[3] = 0;
+		if (0 != trySockRecv(connection, message, 8)) return; 
+		else
+		{
+			peerID = getShortFromBuffer(message);
+			destID = getShortFromBuffer(message[4]);
+			messageLength = getShortFromBuffer(message[6]);
+		}
+		insertShortIntoBuffer(message[2], connection_info->mode_info.service.serviceID);
+		if (0 != trySockRecv(connection, message[8], messageLength)) return;
 
-		sendPeerMessage(connection, peerToPeerMessage);
+		sendMessage(peerID, connection_info->mode_info.service.serviceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
 
 		break;
 	}
@@ -209,30 +200,30 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_MODE_PEER:
 	{
 
-		uint8_t peerToServiceMessage[65536 + 8]; // the max possible size of a peer->service message command
-		uint8_t buffer[4];
+		//TODO: add proper failure responses
+		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE]; // the max possible size of a message command
+		uint16_t sourceID, destID, messageLength;
 
-		if (0 != trySockRecv(connection, buffer, 4))
-			return; // attempt to recieve the message command header
+		if (0 != trySockRecv(connection, message, 8)) return;
+		else
+		{
+			sourceID = getShortFromBuffer(message[2]);
+			destID = getShortFromBuffer(message[4]);
+			messageLength = getShortFromBuffer(message[6]);
+		}
+		insertShortIntoBuffer(message, connection_info->mode_info.peer.peerID);
+		if (0 != trySockRecv(connection, message[8], messageLength)) return;
 
-		uint16_t destServiceID = getShortFromBuffer(buffer);
-		uint16_t destServicePort = getShortFromBuffer(&buffer[2]); //get the destination from the header
-
-		insertShortIntoBuffer(peerToServiceMessage, connection_info->mode_info.peer.peerID);
-
-		if (0 != trySockRecv(connection, &peerToServiceMessage[2], 6))
-			return; // attempt to recieve the message command header
-
-		uint16_t messageLength = getShortFromBuffer(&peerToServiceMessage[6]);
-
-		if (0 != trySockRecv(connection, &peerToServiceMessage[8], messageLength))
-			return; // attempt to recieve the initial message frame in the message command
-
-		int32_t sendResult = sendMessageToServiceID(destServiceID, destServicePort, peerToServiceMessage, messageLength + 8);
-		if (0 != sendResult)
-			sendMessageErrorToPeer(connection, destServiceID, destServicePort, sendResult);
+		sendMessage(connection_info->mode_info.peer.peerID, sourceID, destID, message, POLY_COMMAND_MESSAGE_HEADER_SIZE + messageLength);
 
 		break;
+	}
+
+	case POLY_MODE_CLIENT:
+	{
+
+		// this realm shouldn't be using this command. send error.
+
 	}
 
 	default:

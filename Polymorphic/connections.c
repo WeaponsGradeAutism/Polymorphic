@@ -25,14 +25,11 @@ void initializeNewPeerInfo(POLYM_CONNECTION_INFO *connection_info, void *connect
 {
 
 	// initialize peer status struct
-	int_array_init(&connection_info->mode_status.peer.connectedServices);
-	int_array_init(&connection_info->mode_status.peer.outboundMessageQueue);
+	int_array_init(&connection_info->mode_info.peer.status.connectedServices);
+	int_array_init(&connection_info->mode_info.peer.status.outboundMessageQueue);
 
 	// set mode to peer
 	connection_info->mode = POLY_MODE_PEER;
-
-	//initialize the int array containing the current connected services
-	int_array_init(&connection_info->mode_status.peer.connectedServices);
 
 	// add new peer to list
 	connection_info->mode_info.peer.peerID = addNewPeer(connection, out_connectionPointer);
@@ -74,9 +71,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 	if (0 == getShortFromBuffer(buffer))
 	{
 		// this connection is a service
-
-		// initalize connected peer array
-		int_array_init(&connection_info->mode_status.service.connectedPeers);
 
 		// initialize new service connection
 		connection_info->mode = POLY_MODE_SERVICE;
