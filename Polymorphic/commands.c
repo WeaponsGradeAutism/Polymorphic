@@ -185,7 +185,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	{
 
 		//TODO: add proper failure responses
-		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE]; // the max possible size of a message command
+		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE];
 		uint16_t peerID, messageLength;
 
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 8)) return;
@@ -207,7 +207,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	{
 
 		//TODO: add proper failure responses
-		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE]; // the max possible size of a message command
+		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE];
 		uint16_t destID, messageLength;
 
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 8)) return;
@@ -256,7 +256,7 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	{
 
 		//TODO: add proper failure responses
-		uint8_t message[POLY_COMMAND_MESSAGE_SERVICE_MAX_SIZE]; // the max possible size of a message command
+		uint8_t message[POLY_COMMAND_MESSAGE_SERVICE_MAX_SIZE];
 		uint16_t destID, messageLength;
 
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 6)) return;
@@ -321,7 +321,7 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_REALM_SERVICE:
 	{
 		//TODO: add proper failure responses
-		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE]; // the max possible size of a message command
+		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE];
 		uint16_t destID, messageLength;
 
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 6)) return;
@@ -341,7 +341,7 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_REALM_CLIENT:
 	{
 		//TODO: add proper failure responses
-		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE]; // the max possible size of a message command
+		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE];
 		uint16_t destID, messageLength;
 
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 6)) return;
