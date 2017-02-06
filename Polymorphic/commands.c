@@ -188,13 +188,13 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE];
 		uint16_t peerID, messageLength;
 
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 8)) return;
+		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE);
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH)) return;
 		else
 		{
 			peerID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE);
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength)) return;
 
@@ -210,13 +210,13 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE];
 		uint16_t destID, messageLength;
 
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 8)) return;
+		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE);
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH)) return;
 		else
 		{
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE);
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID], connection_info->realm_info.peer.peerID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength)) return;
 
@@ -259,13 +259,13 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 		uint8_t message[POLY_COMMAND_MESSAGE_SERVICE_MAX_SIZE];
 		uint16_t destID, messageLength;
 
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 6)) return;
+		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_SERVICE);
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH)) return;
 		else
 		{
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_SERVICE);
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE], messageLength)) return;
 
@@ -324,13 +324,13 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE];
 		uint16_t destID, messageLength;
 
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 6)) return;
+		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_CLIENT);
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH)) return;
 		else
 		{
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_CLIENT);
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength)) return;
 
@@ -344,13 +344,13 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE];
 		uint16_t destID, messageLength;
 
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], 6)) return;
+		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_CLIENT);
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH)) return;
 		else
 		{
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_CLIENT);
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->realm_info.client.clientID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength)) return;
 
