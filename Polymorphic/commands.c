@@ -318,6 +318,14 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 
 	switch (connection_info->realm)
 	{
+
+	case POLY_REALM_PEER:
+	{
+
+		// TODO: This realm cannot use this command. Send error.
+
+	}
+
 	case POLY_REALM_SERVICE:
 	{
 		//TODO: add proper failure responses
