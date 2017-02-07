@@ -422,8 +422,14 @@ void processCommand(void *connection, uint8_t *command, POLYM_CONNECTION_INFO *c
 	case POLY_COMMAND_MESSAGE_SERVICE:
 		recvMessageService(connection, connection_info);
 		break;
+	case POLY_COMMAND_MESSAGE_CLIENT:
+		recvMessageClient(connection, connection_info);
+		break;
 	case POLY_COMMAND_DISCONNECT:
 		//recvDisconnect(connection_info);
+		break;
+	case POLY_COMMAND_ERROR:
+		// ERROR
 		break;
 
 	default:
