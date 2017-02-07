@@ -110,13 +110,15 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			sendConnectErrorToService(connection, address, port, protocol, connectResult);
 		break;
 	case POLY_REALM_PEER:
-		// peers should not be telling us to connect to other peers. this is an error. disconnect.
-		sendDisconnect(connection, POLY_PROTO_ERROR_INVALID_COMMAND);
-		return;
+
+		// TODO: This realm cannot use this command. Send error.
+		break;
+
 	case POLY_REALM_CLIENT:
-		// peers should not be telling us to connect to other peers. this is an error. disconnect.
-		sendDisconnect(connection, POLY_PROTO_ERROR_INVALID_COMMAND);
-		return;
+
+		// TODO: This realm cannot use this command. Send error.
+		break;
+
 	}
 
 }
@@ -229,6 +231,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	{
 
 		// TODO: This realm cannot use this command. Send error.
+		break;
 
 	}
 
@@ -278,6 +281,7 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	{
 
 		// TODO: This realm cannot use this command. Send error.
+		break;
 
 	}
 
@@ -285,6 +289,7 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	{
 
 		// TODO: This realm cannot use this command. Send error.
+		break;
 
 	}
 
@@ -323,6 +328,7 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	{
 
 		// TODO: This realm cannot use this command. Send error.
+		break;
 
 	}
 
