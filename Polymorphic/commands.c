@@ -7,6 +7,31 @@
 #define MSG_WAITALL 0x8
 #endif
 
+void sendError(void* connection, uint16_t errorCode)
+{
+	uint8_t message[4];
+
+	insertShortIntoBuffer(message, POLY_COMMAND_ERROR);
+	insertShortIntoBuffer(message[POLY_COMMAND_ERROR_OFFSET_ERROR_CODE], errorCode);
+
+	sockSendAsync(connection, message, POLY_COMMAND_ERROR_MAX_SIZE);
+}
+
+void sendErrorToPeer(uint16_t peerID, uint16_t errorCode)
+{
+	sendError(getConnectionFromPeerID(peerID), errorCode);
+}
+
+void sendErrorToService(uint16_t serviceID, uint16_t errorCode)
+{
+	sendError(getConnectionFromServiceID(serviceID), errorCode);
+}
+
+void sendErrorToClient(uint16_t clientID, uint16_t errorCode)
+{
+	sendError(getConnectionFromClientID(clientID), errorCode);
+}
+
 void sendPeerDisconnected(void* connection, uint16_t peerID)
 {
 	uint8_t buffer[4];
@@ -45,8 +70,8 @@ int trySockRecv(void *connection, uint8_t* buffer, uint32_t length)
 	else
 	{
 		// send error message and disconnect
-		sendDisconnect(connection, POLY_PROTO_ERROR_TRANSMISSION_FAIL);
-		return POLY_PROTO_ERROR_TRANSMISSION_FAIL;
+		sendDisconnect(connection, POLY_ERROR_TRANSMISSION_FAIL);
+		return POLY_ERROR_TRANSMISSION_FAIL;
 	}
 }
 
@@ -94,7 +119,7 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		//don't connect to a loopback address
 		if (address >= 2130706433 && address <= 2147483646)
 		{
-			sendConnectErrorToService(connection, address, port, protocol, POLY_PROTO_ERROR_INVALID_ADDRESS);
+			sendConnectErrorToService(connection, address, port, protocol, POLY_ERROR_INVALID_ADDRESS);
 			return;
 		}
 
@@ -111,70 +136,38 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		break;
 	case POLY_REALM_PEER:
 
-		// TODO: This realm cannot use this command. Send error.
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
 		break;
 
 	case POLY_REALM_CLIENT:
 
-		// TODO: This realm cannot use this command. Send error.
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
 		break;
 
 	}
 
 }
 
-void sendMessageErrorToService(void* connection, uint16_t peerID, uint16_t errorCode)
-{
-	uint8_t buffer[6];
-
-	insertShortIntoBuffer(buffer, POLY_COMMAND_MESSAGE_ERROR);
-	insertShortIntoBuffer(&buffer[2], peerID);
-	insertShortIntoBuffer(&buffer[4], errorCode);
-
-	sockSendAsync(connection, buffer, 6);
-}
-
-int sendMessageToServiceID(uint16_t serviceID, uint16_t portID, uint8_t* message, uint16_t length)
-{
-	void *connection = getConnectionFromServiceID(serviceID);
-
-	if (connection == NULL)
-		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
-
-	sockSendAsync(connection, message, length);
-	return 0;
-}
-
-void sendMessageErrorToPeer(void* connection, uint16_t serviceID, uint16_t servicePort, uint16_t errorCode)
-{
-	uint8_t buffer[8];
-
-	insertShortIntoBuffer(buffer, POLY_COMMAND_MESSAGE_ERROR);
-	insertShortIntoBuffer(&buffer[2], serviceID);
-	insertShortIntoBuffer(&buffer[4], servicePort);
-	insertShortIntoBuffer(&buffer[6], errorCode);
-
-	sockSendAsync(connection, buffer, 6);
-}
-
-void sendMessageIn(uint16_t destID, uint8_t *message, int totalLength)
+int sendMessageIn(uint16_t destID, uint8_t *message, int totalLength)
 {
 	void *connection;
 	connection = getConnectionFromServiceID(destID);
 	if (connection == NULL)
-		return; //TODO: Send error code
+		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	sockSendAsync(connection, message, totalLength);
+	return 0;
 }
 
-void sendMessageOut(uint16_t peerID, uint8_t *message, int totalLength)
+int sendMessageOut(uint16_t peerID, uint8_t *message, int totalLength)
 {
 	void *connection;
 	connection = getConnectionFromPeerID(peerID);
 	if (connection == NULL)
-		return; //TODO: Send error code
+		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	sockSendAsync(connection, message, totalLength);
+	return 0;
 }
 
 void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
@@ -186,21 +179,29 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_REALM_SERVICE:
 	{
 
-		//TODO: add proper failure responses
 		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE];
 		uint16_t peerID, messageLength;
 
 		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH))
+		{
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			return;
+		}
 		else
 		{
 			peerID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH]);
 		}
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength))
+		{
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			return;
+		}
 
-		sendMessageOut(peerID, message, 10 + messageLength);
+		if (sendMessageOut(peerID, message, 10 + messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;
 	}
@@ -208,7 +209,6 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_REALM_PEER:
 	{
 
-		//TODO: add proper failure responses
 		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE];
 		uint16_t destID, messageLength;
 
@@ -222,7 +222,8 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID], connection_info->realm_info.peer.peerID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength)) return;
 
-		sendMessageIn(destID, message, 10 + messageLength);
+		if(sendMessageIn(destID, message, 10 + messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;
 	}
@@ -230,7 +231,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_REALM_CLIENT:
 	{
 
-		// TODO: This realm cannot use this command. Send error.
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
 		break;
 
 	}
@@ -240,14 +241,15 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	}
 }
 
-void sendMessageService(uint16_t destID, uint8_t *message, int totalLength)
+int sendMessageService(uint16_t destID, uint8_t *message, int totalLength)
 {
 	void *connection;
 	connection = getConnectionFromServiceID(destID);
 	if (connection == NULL)
-		return; //TODO: Send error code.
+		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	sockSendAsync(connection, message, totalLength);
+	return 0;
 }
 
 void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info)
@@ -258,21 +260,29 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	case POLY_REALM_SERVICE:
 	{
 
-		//TODO: add proper failure responses
 		uint8_t message[POLY_COMMAND_MESSAGE_SERVICE_MAX_SIZE];
 		uint16_t destID, messageLength;
 
 		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_SERVICE);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH))
+		{
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			return;
+		}
 		else
 		{
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH]);
 		}
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE], messageLength)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE], messageLength))
+		{
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			return;
+		}
 
-		sendMessageService(destID, message, 8 + messageLength);
+		if(sendMessageService(destID, message, 8 + messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;
 	}
@@ -280,7 +290,7 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	case POLY_REALM_PEER:
 	{
 
-		// TODO: This realm cannot use this command. Send error.
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
 		break;
 
 	}
@@ -288,7 +298,7 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	case POLY_REALM_CLIENT:
 	{
 
-		// TODO: This realm cannot use this command. Send error.
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
 		break;
 
 	}
@@ -298,24 +308,26 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	}
 }
 
-void sendMessageClientIn(uint16_t destID, uint8_t *message, int totalLength)
+int sendMessageClientIn(uint16_t destID, uint8_t *message, int totalLength)
 {
 	void *connection;
 	connection = getConnectionFromClientID(destID);
 	if (connection == NULL)
-		return; //TODO: Send error code.
+		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	sockSendAsync(connection, message, totalLength);
+	return 0;
 }
 
-void sendMessageClientOut(uint16_t destID, uint8_t *message, int totalLength)
+int sendMessageClientOut(uint16_t destID, uint8_t *message, int totalLength)
 {
 	void *connection;
 	connection = getConnectionFromServiceID(destID);
 	if (connection == NULL)
-		return; //TODO: Send error code.
+		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	sockSendAsync(connection, message, totalLength);
+	return 0;
 }
 
 void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
@@ -327,48 +339,66 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_REALM_PEER:
 	{
 
-		// TODO: This realm cannot use this command. Send error.
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
 		break;
 
 	}
 
 	case POLY_REALM_SERVICE:
 	{
-		//TODO: add proper failure responses
 		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE];
 		uint16_t destID, messageLength;
 
 		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_CLIENT);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH))
+		{
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			return;
+		}
 		else
 		{
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH]);
 		}
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength))
+		{
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			return;
+		}
 
-		sendMessageClientIn(destID, message, 8 + messageLength);
+		if(sendMessageClientIn(destID, message, 8 + messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
+
 		break;
 
 	}
 	case POLY_REALM_CLIENT:
 	{
-		//TODO: add proper failure responses
 		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE];
 		uint16_t destID, messageLength;
 
 		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_CLIENT);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH))
+		{
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			return;
+		}
 		else
 		{
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH]);
 		}
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->realm_info.client.clientID);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength))
+		{
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			return;
+		}
 
-		sendMessageClientOut(destID, message, 8 + messageLength);
+		if(sendMessageClientOut(destID, message, 8 + messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
+
 		break;
 	}
 	}

@@ -46,6 +46,10 @@
 #define POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH 6 // The offset for the message length in message MESSAGE_CLIENT command 
 #define POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE 8 // The offset for the message in message MESSAGE_CLIENT command 
 
+//ERROR
+#define POLY_COMMAND_ERROR_MAX_SIZE 4 // The maximum total size of a ERROR command
+#define POLY_COMMAND_ERROR_OFFSET_ERROR_CODE 2 // The offset for the source ID in message MESSAGE_CLIENT command 
+
 //END poly command info --------------------------
 
 
@@ -54,13 +58,14 @@
 
 
 // POLY protocol error codes
-#define POLY_PROTO_ERROR_PEER_DOES_NOT_EXIST 1 // The requested peer ID does not exist on this server
-#define POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST 2 // The requested peer ID does not exist on this server
-#define POLY_PROTO_ERROR_CLIENT_DOES_NOT_EXIST 3 // The requested peer ID does not exist on this server
-#define POLY_PROTO_ERROR_TRANSMISSION_FAIL 4 // A socket operation failed
-#define POLY_PROTO_ERROR_INVALID_COMMAND 5 // The supplied command code was invalid (TODO: disambiguate between globally invalid commands and commands that are invalid for this realm)
-#define POLY_PROTO_ERROR_INVALID_ADDRESS 6 // The supplied IP address was not valid
-#define POLY_PROTO_ERROR_MAX_CONNECTIONS 7 // The server cannot accept any more connections
+#define POLY_ERROR_PEER_DOES_NOT_EXIST 1 // The requested peer ID does not exist on this server
+#define POLY_ERROR_SERVICE_DOES_NOT_EXIST 2 // The requested peer ID does not exist on this server
+#define POLY_ERROR_CLIENT_DOES_NOT_EXIST 3 // The requested peer ID does not exist on this server
+#define POLY_ERROR_TRANSMISSION_FAIL 4 // A socket operation failed
+#define POLY_ERROR_INVALID_COMMAND 5 // The supplied command code was invalid
+#define POLY_ERROR_DISALLOWED_COMMAND 6 // the supplied command code isn't allowed for this realm.
+#define POLY_ERROR_INVALID_ADDRESS 7 // The supplied IP address was not valid
+#define POLY_ERROR_MAX_CONNECTIONS 8 // The server cannot accept any more connections
 
 
 // POLY command codes
@@ -71,7 +76,7 @@
 #define POLY_COMMAND_MESSAGE 0x0004
 #define POLY_COMMAND_MESSAGE_SERVICE 0x0005
 #define POLY_COMMAND_MESSAGE_CLIENT 0x0006
-#define POLY_COMMAND_MESSAGE_ERROR 0x0007
+#define POLY_COMMAND_ERROR 0x0007
 
 
 // POLY command error codes

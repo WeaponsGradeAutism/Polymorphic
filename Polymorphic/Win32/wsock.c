@@ -454,7 +454,7 @@ int removeService(uint16_t serviceID)
 	POLYM_CONNECTION* connection = connection_array_get(&serviceConnections, serviceID);
 
 	if (connection = NULL)
-		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
+		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	connection_array_free(&serviceConnections, serviceID);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
@@ -483,7 +483,7 @@ int removePeer(uint16_t peerID)
 	POLYM_CONNECTION* connection = connection_array_get(&peerConnections, peerID);
 
 	if (connection = NULL)
-		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
+		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	connection_array_free(&peerConnections, peerID);
 	LeaveCriticalSection(&peerConnectionsCriticalSection);
@@ -510,7 +510,7 @@ int removeClient(uint16_t clientID)
 	POLYM_CONNECTION* connection = connection_array_get(&clientConnections, clientID);
 
 	if (connection = NULL)
-		return POLY_PROTO_ERROR_SERVICE_DOES_NOT_EXIST;
+		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
 	connection_array_free(&clientConnections, clientID);
 	LeaveCriticalSection(&clientConnectionsCriticalSection);
@@ -692,7 +692,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 		{
 			// send error code for full
 			char buffer[2];
-			insertShortIntoBuffer(buffer, POLY_PROTO_ERROR_MAX_CONNECTIONS);
+			insertShortIntoBuffer(buffer, POLY_ERROR_MAX_CONNECTIONS);
 			send(connection.socket, buffer, 2, 0);
 			shutdown(connection.socket, SD_BOTH);
 			closesocket(connection.socket);

@@ -202,7 +202,7 @@ The basic building block of POLY. Sends messages from services from peer to peer
 
 
 
-MESSAGE_SERVICE_TO_SERVICE
+MESSAGE_SERVICE_TO_SERVICE (s==>s)
 Allows services to send messages to each other.
 
 0: 2-byte command code
@@ -214,7 +214,7 @@ Allows services to send messages to each other.
 
 
 
-MESSAGE_SERVICE_TO_CLIENT
+MESSAGE_SERVICE_TO_CLIENT (s==>c c==>s)
 Allows clients to send messages to services and vice versa.
 
 0: 2-byte command code
@@ -226,19 +226,10 @@ Allows clients to send messages to services and vice versa.
 
 
 
-0009: MESSAGE_ERROR (p==>p p==>s)
+0009: ERROR (p==>p p==>s)
 
-(p==>p)
-0: 2-byte service ID
-2: 2-byte service port
-4: 2-byte error code
-8: END
-
-(p==>s)
-0: 2-byte peer ID
-4: 2-byte error code
-6: END
-
+0: 2-byte command code
+2: 2-byte error code
 
 
 000E: PEER-LIST (s==>p p==>p)
