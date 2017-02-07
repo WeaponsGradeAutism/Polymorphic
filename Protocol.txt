@@ -232,6 +232,7 @@ Allows clients to send messages to services and vice versa.
 2: 2-byte error code
 
 
+
 000E: PEER-LIST (s==>p p==>p)
 Requests the biggest peer-list the other peer is willing to offer. Services can request this from specific peers. Peers can respond to this request with any number of PEER-INFO commands. Used for bootstrapping. 
 
