@@ -7,45 +7,6 @@
 #define MSG_WAITALL 0x8
 #endif
 
-void sendError(void* connection, uint16_t errorCode)
-{
-	POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
-	uint8_t *message = buffer->buf;
-
-	insertShortIntoBuffer(message, POLY_COMMAND_ERROR);
-	insertShortIntoBuffer(&message[POLY_COMMAND_ERROR_OFFSET_ERROR_CODE], errorCode);
-
-	buffer->messageSize = POLY_COMMAND_ERROR_MAX_SIZE;
-
-	sockSendAsync(connection, buffer);
-}
-
-void sendErrorToPeer(uint16_t peerID, uint16_t errorCode)
-{
-	sendError(getConnectionFromPeerID(peerID), errorCode);
-}
-
-void sendErrorToService(uint16_t serviceID, uint16_t errorCode)
-{
-	sendError(getConnectionFromServiceID(serviceID), errorCode);
-}
-
-void sendErrorToClient(uint16_t clientID, uint16_t errorCode)
-{
-	sendError(getConnectionFromClientID(clientID), errorCode);
-}
-
-void sendPeerDisconnected(void* connection, uint16_t peerID)
-{
-
-	uint8_t buffer[4];
-
-	insertShortIntoBuffer(buffer, POLY_COMMAND_CONNECT_ERROR);
-	insertLongIntoBuffer(&buffer[2], peerID);
-
-	//sockSendAsync(connection, buffer, 4);
-}
-
 int sendDisconnect(void *connection, uint16_t disconnectCode)
 {
 	uint8_t buffer[4]; // create a buffer for operations
@@ -77,6 +38,48 @@ int trySockRecv(void *connection, uint8_t* buffer, uint32_t length)
 		sendDisconnect(connection, POLY_ERROR_TRANSMISSION_FAIL);
 		return POLY_ERROR_TRANSMISSION_FAIL;
 	}
+}
+
+void sendError(void* connection, uint16_t errorCode)
+{
+	POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
+	uint8_t *message = buffer->buf;
+
+	insertShortIntoBuffer(message, POLY_COMMAND_ERROR);
+	insertShortIntoBuffer(&message[POLY_COMMAND_ERROR_OFFSET_ERROR_CODE], errorCode);
+
+	buffer->messageSize = POLY_COMMAND_ERROR_MAX_SIZE;
+
+	sockSendAsync(connection, buffer);
+}
+
+void sendErrorToPeer(uint16_t peerID, uint16_t errorCode)
+{
+	sendError(getConnectionFromPeerID(peerID), errorCode);
+}
+
+void sendErrorToService(uint16_t serviceID, uint16_t errorCode)
+{
+	sendError(getConnectionFromServiceID(serviceID), errorCode);
+}
+
+void sendErrorToClient(uint16_t clientID, uint16_t errorCode)
+{
+	sendError(getConnectionFromClientID(clientID), errorCode);
+}
+
+void sendPeerDisconnected(void* connection, uint16_t peerID)
+{
+
+	POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
+	uint8_t *message = buffer->buf;
+
+	insertShortIntoBuffer(buffer, POLY_COMMAND_CONNECT_ERROR);
+	insertLongIntoBuffer(&buffer[2], peerID);
+
+	buffer->messageSize = POLY_COMMAND_PEER_DISCONNECTED_MAX_SIZE;
+
+	sockSendAsync(connection, buffer);
 }
 
 void sendConnectErrorToService(void* connection, uint32_t address, uint16_t port, uint8_t protocol, uint16_t errorCode)

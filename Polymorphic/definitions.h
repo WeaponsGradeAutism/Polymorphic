@@ -50,6 +50,10 @@
 #define POLY_COMMAND_ERROR_MAX_SIZE 4 // The maximum total size of a ERROR command
 #define POLY_COMMAND_ERROR_OFFSET_ERROR_CODE 2 // The offset for the source ID in message MESSAGE_CLIENT command 
 
+//PEER_DISCONNECTED
+#define POLY_COMMAND_PEER_DISCONNECTED_MAX_SIZE 4 // The maximum total size of a ERROR command
+#define POLY_COMMAND_PEER_DISCONNECTED_OFFSET_PEER_ID 2 // The offset for the source ID in message MESSAGE_CLIENT command 
+
 //END poly command info --------------------------
 
 

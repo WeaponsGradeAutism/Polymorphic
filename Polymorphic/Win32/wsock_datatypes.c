@@ -137,7 +137,7 @@ void message_buffer_init(message_buffer *buffer)
 }
 
 ///<summary> Initializes the message buffer array at the default size. </summary>
-void message_buffer_array_init(message_buffer_array *vector, int size)
+void message_buffer_array_init(message_buffer_array *vector)
 {
 	message_buffer_array_init_capacity(vector, VECTOR_INITIAL_CAPACITY);
 }

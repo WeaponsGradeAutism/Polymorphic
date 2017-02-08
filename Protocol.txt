@@ -164,18 +164,9 @@ Used to notify remote peer, local peer, or service that disconnection is taking 
 0005: PEER_DISCONNECTED (p==>s)
 Notifies services of peers disconnecting.
 
-(p==>s)
-0: 2-byte connected peer id
-2: END
-
-
-
-0006: PEER_DISCONNECTEDv6 (p==>s)
-Like PEER_DISCONNECTED, but for IPv6 clients.
-
-(p==>s)
-0: 2-byte connected peer id
-2: END
+0: 2-byte command code
+2: 2-byte peer id
+4: END
 
 
 
