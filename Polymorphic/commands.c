@@ -178,7 +178,6 @@ int sendMessageOut(uint16_t peerID, POLYM_MESSAGE_BUFFER *buffer)
 	return 0;
 }
 
-//Tags: TEST_CASE_BUFFER
 void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 {
 
