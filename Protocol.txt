@@ -97,11 +97,12 @@ Upon connection success, a NEW_CONNECTION event will be sent to all listening se
 
 
 0000: CONNECT_ERROR  (p==>s)
-0: 4-byte IPv4 address
-4: 2-byte Layer-4 port
-6: 2-byte protocol 
-8: 2-byte error code
-10: END
+0: 2-byte command code
+2: 4-byte IPv4 address
+6: 2-byte Layer-4 port
+8: 2-byte protocol 
+10: 2-byte error code
+12: END
 
 
 

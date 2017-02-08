@@ -84,15 +84,18 @@ void sendPeerDisconnected(void* connection, uint16_t peerID)
 
 void sendConnectErrorToService(void* connection, uint32_t address, uint16_t port, uint8_t protocol, uint16_t errorCode)
 {
-	uint8_t buffer[12];
+	POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
+	uint8_t *message = buffer->buf;
 
-	insertShortIntoBuffer(buffer, POLY_COMMAND_CONNECT_ERROR);
-	insertLongIntoBuffer(&buffer[2], address);
-	insertShortIntoBuffer(&buffer[6], port);
-	insertShortIntoBuffer(&buffer[8], protocol);
-	insertShortIntoBuffer(&buffer[10], errorCode);
+	insertShortIntoBuffer(message, POLY_COMMAND_CONNECT_ERROR);
+	insertLongIntoBuffer(&message[POLY_COMMAND_CONNECT_ERROR_OFFSET_IPV4_ADDRESS], address);
+	insertShortIntoBuffer(&message[POLY_COMMAND_CONNECT_ERROR_OFFSET_LAYER4_PORT], port);
+	insertShortIntoBuffer(&message[POLY_COMMAND_CONNECT_ERROR_OFFSET_PROTOCOL], protocol);
+	insertShortIntoBuffer(&message[POLY_COMMAND_CONNECT_ERROR_OFFSET_ERROR_CODE], errorCode);
 
-	//sockSendAsync(connection, buffer, 12);
+	buffer->messageSize = POLY_COMMAND_CONNECT_ERROR_MAX_SIZE;
+
+	sockSendAsync(connection, buffer);
 }
 
 /* connection procedure:

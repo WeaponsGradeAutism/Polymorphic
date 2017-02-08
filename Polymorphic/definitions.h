@@ -34,25 +34,32 @@
 
 //MESSAGE_SERVICE
 #define POLY_COMMAND_MESSAGE_SERVICE_MAX_SIZE 65544 // The maximum total size of a MESSAGE_SERVICE command
-#define POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID 2 // The offset for the source ID in message MESSAGE_SERVICE command 
-#define POLY_COMMAND_MESSAGE_SERVICE_OFFSET_DESTINATION_ID 4 // The offset for the destination ID in message MESSAGE_SERVICE command 
-#define POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH 6 // The offset for the message length in message MESSAGE_SERVICE command 
-#define POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE 8 // The offset for the message in message MESSAGE_SERVICE command 
+#define POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID 2 // The offset for the source ID in MESSAGE_SERVICE command 
+#define POLY_COMMAND_MESSAGE_SERVICE_OFFSET_DESTINATION_ID 4 // The offset for the destination ID in MESSAGE_SERVICE command 
+#define POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH 6 // The offset for the message length in MESSAGE_SERVICE command 
+#define POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE 8 // The offset for the message in MESSAGE_SERVICE command 
 
 //MESSAGE_CLIENT
 #define POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE 65544 // The maximum total size of a MESSAGE_CLIENT command
-#define POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID 2 // The offset for the source ID in message MESSAGE_CLIENT command 
-#define POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID 4 // The offset for the destination ID in message MESSAGE_CLIENT command 
-#define POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH 6 // The offset for the message length in message MESSAGE_CLIENT command 
-#define POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE 8 // The offset for the message in message MESSAGE_CLIENT command 
+#define POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID 2 // The offset for the source ID in MESSAGE_CLIENT command 
+#define POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID 4 // The offset for the destination ID in MESSAGE_CLIENT command 
+#define POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH 6 // The offset for the message length in MESSAGE_CLIENT command 
+#define POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE 8 // The offset for the message in MESSAGE_CLIENT command 
 
 //ERROR
 #define POLY_COMMAND_ERROR_MAX_SIZE 4 // The maximum total size of a ERROR command
-#define POLY_COMMAND_ERROR_OFFSET_ERROR_CODE 2 // The offset for the source ID in message MESSAGE_CLIENT command 
+#define POLY_COMMAND_ERROR_OFFSET_ERROR_CODE 2 // The offset for the error code in ERROR command 
 
 //PEER_DISCONNECTED
-#define POLY_COMMAND_PEER_DISCONNECTED_MAX_SIZE 4 // The maximum total size of a ERROR command
-#define POLY_COMMAND_PEER_DISCONNECTED_OFFSET_PEER_ID 2 // The offset for the source ID in message MESSAGE_CLIENT command 
+#define POLY_COMMAND_PEER_DISCONNECTED_MAX_SIZE 4 // The maximum total size of a PEER_DISCONNECTED command
+#define POLY_COMMAND_PEER_DISCONNECTED_OFFSET_PEER_ID 2 // The offset for the peer ID in PEER_DISCONNECTED command 
+
+//CONNECT_ERROR
+#define POLY_COMMAND_CONNECT_ERROR_MAX_SIZE 12 // The maximum total size of a CONNECT_ERROR command
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_IPV4_ADDRESS 2 // The offset for the ipv4 address in CONNECT_ERROR command 
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_LAYER4_PORT 6 // The offset for the layer4 port in CONNECT_ERROR command 
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_PROTOCOL 8 // The offset for the protocol in CONNECT_ERROR command 
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_ERROR_CODE 10 // The offset for the error code in CONNECT_ERROR command 
 
 //END poly command info --------------------------
 
