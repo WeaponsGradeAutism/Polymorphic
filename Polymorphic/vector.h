@@ -4,7 +4,7 @@
 
 #include <stdbool.h>
 
-#define VECTOR_INITIAL_CAPACITY 50
+#define VECTOR_INITIAL_CAPACITY 100
 
 #define VECTOR_INVALID_ARGUMENT -1
 #define ARRAY_NOT_EMPTY -2
