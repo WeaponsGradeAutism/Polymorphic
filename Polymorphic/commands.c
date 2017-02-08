@@ -74,8 +74,8 @@ void sendPeerDisconnected(void* connection, uint16_t peerID)
 	POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
 	uint8_t *message = buffer->buf;
 
-	insertShortIntoBuffer(buffer, POLY_COMMAND_CONNECT_ERROR);
-	insertLongIntoBuffer(&buffer[2], peerID);
+	insertShortIntoBuffer(message, POLY_COMMAND_CONNECT_ERROR);
+	insertLongIntoBuffer(&message[2], peerID);
 
 	buffer->messageSize = POLY_COMMAND_PEER_DISCONNECTED_MAX_SIZE;
 
