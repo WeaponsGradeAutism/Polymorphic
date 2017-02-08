@@ -204,7 +204,6 @@ int tcpSendAsync(SOCKET socket, WSABUF *wsabuffer, int32_t flags, OVERLAPPED *ov
 }
 
 ///<summary> Perform an asyncronous send on the supplied socket. </summary>
-//TODO: rethink memcpy approach
 int sockSendAsync(void* connection, POLYM_MESSAGE_BUFFER *buffer)
 {
 
