@@ -16,7 +16,7 @@ uint32_t getLongFromBufferNC(uint8_t* buffer);
 
 int sockRecv(void* connection, uint8_t *buffer, uint32_t length);
 int sockSend(void* connection, uint8_t *buffer, uint32_t length);
-int sockSendAsync(void* connection, uint8_t *buffer, int length);
+int sockSendAsync(void* connection, POLYM_MESSAGE_BUFFER *buffer);
 
 void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **out_connectionInfo, uint8_t protocol);
 
@@ -43,3 +43,5 @@ int addressConnected(char *stringAddress, uint16_t port, uint8_t protocol);
 
 void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info);
 void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info);
+
+POLYM_MESSAGE_BUFFER* allocateBufferObject();

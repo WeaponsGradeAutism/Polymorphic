@@ -9,12 +9,15 @@
 
 void sendError(void* connection, uint16_t errorCode)
 {
-	uint8_t message[4];
+	POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
+	uint8_t *message = buffer->buf;
 
 	insertShortIntoBuffer(message, POLY_COMMAND_ERROR);
-	insertShortIntoBuffer(message[POLY_COMMAND_ERROR_OFFSET_ERROR_CODE], errorCode);
+	insertShortIntoBuffer(&message[POLY_COMMAND_ERROR_OFFSET_ERROR_CODE], errorCode);
 
-	sockSendAsync(connection, message, POLY_COMMAND_ERROR_MAX_SIZE);
+	buffer->messageSize = POLY_COMMAND_ERROR_MAX_SIZE;
+
+	sockSendAsync(connection, buffer);
 }
 
 void sendErrorToPeer(uint16_t peerID, uint16_t errorCode)
@@ -34,12 +37,13 @@ void sendErrorToClient(uint16_t clientID, uint16_t errorCode)
 
 void sendPeerDisconnected(void* connection, uint16_t peerID)
 {
+
 	uint8_t buffer[4];
 
 	insertShortIntoBuffer(buffer, POLY_COMMAND_CONNECT_ERROR);
 	insertLongIntoBuffer(&buffer[2], peerID);
 
-	sockSendAsync(connection, buffer, 4);
+	//sockSendAsync(connection, buffer, 4);
 }
 
 int sendDisconnect(void *connection, uint16_t disconnectCode)
@@ -85,7 +89,7 @@ void sendConnectErrorToService(void* connection, uint32_t address, uint16_t port
 	insertShortIntoBuffer(&buffer[8], protocol);
 	insertShortIntoBuffer(&buffer[10], errorCode);
 
-	sockSendAsync(connection, buffer, 12);
+	//sockSendAsync(connection, buffer, 12);
 }
 
 /* connection procedure:
@@ -148,28 +152,27 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 
 }
 
-int sendMessageIn(uint16_t destID, uint8_t *message, int totalLength)
+int sendMessageIn(uint16_t destID, POLYM_MESSAGE_BUFFER *buffer)
 {
-	void *connection;
-	connection = getConnectionFromServiceID(destID);
+	void *connection = getConnectionFromServiceID(destID);
 	if (connection == NULL)
 		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
-	sockSendAsync(connection, message, totalLength);
+	sockSendAsync(connection, buffer);
 	return 0;
 }
 
-int sendMessageOut(uint16_t peerID, uint8_t *message, int totalLength)
+int sendMessageOut(uint16_t peerID, POLYM_MESSAGE_BUFFER *buffer)
 {
-	void *connection;
-	connection = getConnectionFromPeerID(peerID);
+	void *connection = getConnectionFromPeerID(peerID);
 	if (connection == NULL)
 		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
-	sockSendAsync(connection, message, totalLength);
+	sockSendAsync(connection, buffer);
 	return 0;
 }
 
+//Tags: TEST_CASE_BUFFER
 void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 {
 
@@ -179,7 +182,8 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_REALM_SERVICE:
 	{
 
-		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE];
+		POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
+		uint8_t *message = buffer->buf;
 		uint16_t peerID, messageLength;
 
 		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE);
@@ -200,7 +204,9 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			return;
 		}
 
-		if (sendMessageOut(peerID, message, 10 + messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+		buffer->messageSize = 10 + messageLength;
+
+		if (sendMessageOut(peerID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
 			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;
@@ -209,20 +215,31 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_REALM_PEER:
 	{
 
-		uint8_t message[POLY_COMMAND_MESSAGE_MAX_SIZE];
+		POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
+		uint8_t *message = buffer->buf;
 		uint16_t destID, messageLength;
 
 		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH)) 
+		{
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			return;
+		}
 		else
 		{
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH]);
 		}
 		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID], connection_info->realm_info.peer.peerID);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength)) return;
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength))
+		{
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			return;
+		}
 
-		if(sendMessageIn(destID, message, 10 + messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+		buffer->messageSize = 10 + messageLength;
+
+		if(sendMessageIn(destID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
 			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;
@@ -241,14 +258,13 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	}
 }
 
-int sendMessageService(uint16_t destID, uint8_t *message, int totalLength)
+int sendMessageService(uint16_t destID, POLYM_MESSAGE_BUFFER *buffer)
 {
-	void *connection;
-	connection = getConnectionFromServiceID(destID);
+	void *connection = getConnectionFromServiceID(destID);
 	if (connection == NULL)
 		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
-	sockSendAsync(connection, message, totalLength);
+	sockSendAsync(connection, buffer);
 	return 0;
 }
 
@@ -260,7 +276,8 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	case POLY_REALM_SERVICE:
 	{
 
-		uint8_t message[POLY_COMMAND_MESSAGE_SERVICE_MAX_SIZE];
+		POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
+		uint8_t *message = buffer->buf;
 		uint16_t destID, messageLength;
 
 		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_SERVICE);
@@ -281,7 +298,9 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 			return;
 		}
 
-		if(sendMessageService(destID, message, 8 + messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+		buffer->messageSize = 8 + messageLength;
+
+		if(sendMessageService(destID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
 			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;
@@ -308,25 +327,23 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	}
 }
 
-int sendMessageClientIn(uint16_t destID, uint8_t *message, int totalLength)
+int sendMessageClientIn(uint16_t destID, POLYM_MESSAGE_BUFFER *buffer)
 {
-	void *connection;
-	connection = getConnectionFromClientID(destID);
+	void *connection = getConnectionFromClientID(destID);
 	if (connection == NULL)
 		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
-	sockSendAsync(connection, message, totalLength);
+	sockSendAsync(connection, buffer);
 	return 0;
 }
 
-int sendMessageClientOut(uint16_t destID, uint8_t *message, int totalLength)
+int sendMessageClientOut(uint16_t destID, POLYM_MESSAGE_BUFFER *buffer)
 {
-	void *connection;
-	connection = getConnectionFromServiceID(destID);
+	void *connection = getConnectionFromServiceID(destID);
 	if (connection == NULL)
 		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 
-	sockSendAsync(connection, message, totalLength);
+	sockSendAsync(connection, buffer);
 	return 0;
 }
 
@@ -346,7 +363,8 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 
 	case POLY_REALM_SERVICE:
 	{
-		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE];
+		POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
+		uint8_t *message = buffer->buf;
 		uint16_t destID, messageLength;
 
 		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_CLIENT);
@@ -367,7 +385,9 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			return;
 		}
 
-		if(sendMessageClientIn(destID, message, 8 + messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+		buffer->messageSize = 8 + messageLength;
+
+		if(sendMessageClientIn(destID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
 			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;
@@ -375,7 +395,8 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	}
 	case POLY_REALM_CLIENT:
 	{
-		uint8_t message[POLY_COMMAND_MESSAGE_CLIENT_MAX_SIZE];
+		POLYM_MESSAGE_BUFFER *buffer = allocateBufferObject();
+		uint8_t *message = buffer->buf;
 		uint16_t destID, messageLength;
 
 		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE_CLIENT);
@@ -396,7 +417,9 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			return;
 		}
 
-		if(sendMessageClientOut(destID, message, 8 + messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+		buffer->messageSize = 8 + messageLength;
+
+		if (sendMessageClientOut(destID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
 			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;

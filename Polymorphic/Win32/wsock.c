@@ -205,25 +205,24 @@ int tcpSendAsync(SOCKET socket, WSABUF *wsabuffer, int32_t flags, OVERLAPPED *ov
 
 ///<summary> Perform an asyncronous send on the supplied socket. </summary>
 //TODO: rethink memcpy approach
-int sockSendAsync(void* connection, uint8_t *buffer, int length)
+int sockSendAsync(void* connection, POLYM_MESSAGE_BUFFER *buffer)
 {
 
-	message_buffer *allocation = message_buffer_array_allocate(&messageSpace);
+	message_buffer *message_buffer = buffer->containerObject;
 
 	// copy buffer to space and set length
-	allocation->wsabuf.buf = allocation->buf;
-	memcpy(allocation->buf, buffer, length);
-	allocation->wsabuf.len = length;
+	message_buffer->wsabuf.buf = message_buffer->buffer_object.buf;
+	message_buffer->wsabuf.len = message_buffer->buffer_object.messageSize;
 
 	// create the overlapped info for the event 
-	allocation->overlap.eventType = POLYM_EVENT_ASYNC_SEND;
-	allocation->overlap.eventInfo = &allocation;
-	initializeOverlap(&allocation->overlap);
+	message_buffer->overlap.eventType = POLYM_EVENT_ASYNC_SEND;
+	message_buffer->overlap.eventInfo = &message_buffer;
+	initializeOverlap(&message_buffer->overlap);
 
 	switch ( ((POLYM_CONNECTION*)connection)->protocol )
 	{
 	case POLY_PROTO_TCP:
-		return tcpSendAsync( ((POLYM_CONNECTION*)connection)->socket, &allocation->wsabuf, 0, (OVERLAPPED*)&allocation->overlap );
+		return tcpSendAsync( ((POLYM_CONNECTION*)connection)->socket, &message_buffer->wsabuf, 0, (OVERLAPPED*)&message_buffer->overlap );
 		break;
 	}
 	return -1;
@@ -816,4 +815,12 @@ int startListenSocket(char* port)
 	);
 
 	return 1;
+}
+
+//Tags: MUST_BE_FREED TEST_CASE_BUFFER
+POLYM_MESSAGE_BUFFER* allocateBufferObject()
+{
+	message_buffer *message_buffer = message_buffer_array_allocate(&messageSpace);
+	message_buffer->buffer_object.containerObject = message_buffer;
+	return &message_buffer->buffer_object;
 }

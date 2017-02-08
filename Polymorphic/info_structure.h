@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <vector.h>
+#include <definitions.h>
 
 //consts (need to be moved)
 #define POLYM_SERVICE_MAX_PEER_CONNECTIONS 100
@@ -59,3 +60,10 @@ typedef struct {
 	} realm_info;
 
 } POLYM_CONNECTION_INFO;
+
+typedef struct
+{
+	uint8_t buf[POLY_MAX_MESSAGE_SIZE];
+	int messageSize;
+	void* containerObject; // used internally to track the message_buffer object that contains this one
+} POLYM_MESSAGE_BUFFER;

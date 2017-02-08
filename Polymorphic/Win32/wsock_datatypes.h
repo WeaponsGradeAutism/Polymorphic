@@ -79,7 +79,7 @@ typedef struct {
 typedef struct {
 	WSABUF wsabuf;
 	POLYM_OVERLAPPED overlap;
-	uint8_t buf[POLY_MAX_MESSAGE_SIZE]; // largest possible POLY message
+	POLYM_MESSAGE_BUFFER buffer_object; // largest possible POLY message
 	int index; // this message's position in the message array, set to -1 if currently not in use
 } message_buffer;
 
