@@ -136,8 +136,14 @@ void message_buffer_init(message_buffer *buffer)
 	buffer->wsabuf.buf = NULL;
 }
 
-///<summary> Initializes the message buffer array at the given size. </summary>
+///<summary> Initializes the message buffer array at the default size. </summary>
 void message_buffer_array_init(message_buffer_array *vector, int size)
+{
+	message_buffer_array_init_capacity(vector, VECTOR_INITIAL_CAPACITY);
+}
+
+///<summary> Initializes the message buffer array at the given size. </summary>
+void message_buffer_array_init_capacity(message_buffer_array *vector, int size)
 {
 	vector->messages = malloc(sizeof(message_buffer*) * size);
 	vector->size = size;

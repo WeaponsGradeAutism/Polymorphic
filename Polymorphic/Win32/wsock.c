@@ -739,7 +739,7 @@ int startListenSocket(char* port)
 	connection_array_init(&peerConnections);
 	connection_array_init(&serviceConnections);
 	connection_array_init(&clientConnections);
-	message_buffer_array_init(&messageSpace, 100);
+	message_buffer_array_init(&messageSpace);
 
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;

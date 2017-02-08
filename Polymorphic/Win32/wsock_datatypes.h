@@ -100,7 +100,8 @@ void connection_array_free_container(connection_array *vector);
 
 void message_buffer_init(message_buffer *buffer);
 
-void message_buffer_array_init(message_buffer_array *vector, int size);
+void message_buffer_array_init(message_buffer_array *vector);
+void message_buffer_array_init_capacity(message_buffer_array *vector, int size);
 message_buffer* message_buffer_array_allocate(message_buffer_array *vector);
 void message_buffer_array_free(message_buffer_array *vector, int index);
 void message_buffer_array_free_container(message_buffer_array *vector);
