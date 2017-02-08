@@ -220,7 +220,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint16_t destID, messageLength;
 
 		insertShortIntoBuffer(message, POLY_COMMAND_MESSAGE);
-		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH)) 
+		if (0 != trySockRecv(connection, &message[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH))
 		{
 			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
 			return;
@@ -239,7 +239,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 
 		buffer->messageSize = 10 + messageLength;
 
-		if(sendMessageIn(destID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+		if (sendMessageIn(destID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
 			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;
@@ -300,7 +300,7 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 
 		buffer->messageSize = 8 + messageLength;
 
-		if(sendMessageService(destID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+		if (sendMessageService(destID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
 			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;
@@ -387,7 +387,7 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 
 		buffer->messageSize = 8 + messageLength;
 
-		if(sendMessageClientIn(destID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
+		if (sendMessageClientIn(destID, buffer) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
 			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
 
 		break;
