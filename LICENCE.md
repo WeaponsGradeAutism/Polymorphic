@@ -682,4 +682,4 @@ For the purposes of interaction by external programs with the POLY and Polymorph
 
 This specification apples only to the specified APIs. Interaction with this program using modifications or extensions of these APIs of any kind does not fall under this specification, and is to be considered "intimate data communication or control flow between those subprograms and other parts of the work" by the GPLv3 license.
 
-This notice on "API Usage" must be distributed alongside the GPL with any copies of this progam's source code.
+This notice on "API Usage" must be distributed verbatim alongside the GPL with any copies of this progam's source code.
