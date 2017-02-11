@@ -672,3 +672,14 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <http://www.gnu.org/philosophy/why-not-lgpl.html>.
+
+
+-------
+
+API usage
+
+For the purposes of interaction by external programs with the POLY and Polymorphic APIs outlined here, such interaction is NOT to be considered "intimate data communication or control flow between those subprograms and other parts of the work" by the GPLv3 license. EXPLICIT PERMISSION is granted on these terms to distribute software alongside this work as an "aggregate distribution", rather than be considered a derivative work. This includes access to the specified APIs including but not limited to the following methods: network sockets, local sockets, pipes, file I/O, and shared memory. 
+
+This permission applies only to the specified APIs. Interaction with this program using modifications or extensions of these APIs of any kind or through the use of any other API(s) does not fall under this specification, and is to be considered "intimate data communication or control flow between those subprograms and other parts of the work" by the GPLv3 license. Thus, software interacting with the program in this manner is to be considered derivative work.
+
+This notice on "API usage" must be distributed verbatim alongside the GPL with any copies of this progam's source code, as per the GPLv3.
