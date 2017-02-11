@@ -64,15 +64,21 @@ what buffer size?
 
 1400 byte buffer default
 
-BEGIN (s==>p p==>p)
+BEGIN (s==>p p==>p p==>s p==>c)
 Opening connection.
 
 Greets with message "POLY v" with any number of arbitrary bytes afterward. Terminates with \n.
 
 2-byte encryption request (0 for no encryption, anything else begins the connection with an encryption negotiation)
 (if enc)
+//unimplemented
 (end if enc)
 2-byte realm (0 for peer, 1 for service, 2 for client)
+(if peer)
+-RETURNS- 
+2-byte result code (0 if pass, anything else if fail)
+---------
+(end if peer)
 (if service)
 2-byte service string size (non-zero)
 X-byte service string
@@ -80,11 +86,11 @@ X-byte service string
 2-byte result code (0 if pass, anything else if fail)
 ---------
 (end if service)
-(if peer)
--RETURNS- 
+(if client)
+-RETURNS-
 2-byte result code (0 if pass, anything else if fail)
-(end if peer)
-
+---------
+(end client)
 
 0000: CONNECT (s==>p)
 Upon connection success, a NEW_CONNECTION event will be sent to all listening services.

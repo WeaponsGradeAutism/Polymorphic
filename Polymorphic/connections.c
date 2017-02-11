@@ -44,32 +44,40 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 {
 
 	// send greeting
-	if (sendGreeting(connection) == POLY_REALM_FAILED)
-	{
-		return POLY_REALM_FAILED;
-	}
+	if (sendGreeting(connection) == POLY_REALM_FAILED) return POLY_REALM_FAILED;
 
 	uint8_t buffer[8]; // create a re-usable buffer for operations
 
 	// attempt to recieve encryption setting
-	if (2 != sockRecv(connection, buffer, 2))
-		return POLY_REALM_FAILED;
+	if (2 != sockRecv(connection, buffer, 2)) return POLY_REALM_FAILED;
 
 	// handle encryption negotiation
-	if (getShortFromBuffer(buffer) != 0)
-	{
-		return POLY_REALM_FAILED; // TODO: encryption not yet implemented
-	}
+	if (getShortFromBuffer(buffer) != 0) return POLY_REALM_FAILED; // TODO: encryption not yet implemented
 
 	// attempt to recieve realm code
-	if (2 != sockRecv(connection, buffer, 2))
-	{
-		return POLY_REALM_FAILED;
-	}
+	if (2 != sockRecv(connection, buffer, 2)) return POLY_REALM_FAILED;
 
-	// 0 for service, anything else for peer.
-	if (0 == getShortFromBuffer(buffer))
+	// connection realm
+	switch (getShortFromBuffer(buffer))
 	{
+
+	case POLY_REALM_PEER:
+
+		//construct the return buffer
+		buffer[0] = 0;
+		buffer[1] = 0; // set the first two bytes (result code) to 0 to indicate success
+
+		if (2 == sockSend(connection, buffer, 2)) //send the success code and peer ID
+		{
+			// initalize the peer connection
+			initializeNewPeerInfo(connection_info, connection, out_connectionPointer);
+		} 
+		else
+			return POLY_REALM_FAILED;
+
+		return POLY_REALM_PEER;
+
+	case POLY_REALM_SERVICE:
 		// this connection is a service
 
 		// initialize new service connection
@@ -110,7 +118,6 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		buffer[0] = 0;
 		buffer[1] = 0; // set the first two bytes (result code) to 0 to indicate success
 
-																	  // send the buffer
 		if (2 != sockSend(connection, buffer, 8))
 		{
 			// if for some reason this fails, we need to remove the connection from the service list
@@ -119,25 +126,27 @@ int initializeIncomingConnection(void *connection, POLYM_CONNECTION_INFO *connec
 		}
 		else
 			return POLY_REALM_SERVICE;
-	}
-	else
-	{
 
-		// initalize the peer connection
-		initializeNewPeerInfo(connection_info, connection, out_connectionPointer);
+	case POLY_REALM_CLIENT:
 
 		//construct the return buffer
 		buffer[0] = 0;
 		buffer[1] = 0; // set the first two bytes (result code) to 0 to indicate success
 
-		if (2 != sockSend(connection, buffer, 2)) //send the success code and peer ID
+		if (2 == sockSend(connection, buffer, 2)) //send the success code and peer ID
 		{
-			// if for some reason this fails, we'll need to dispose of the connection
-			removePeer(connection_info->realm_info.peer.peerID);
-			return POLY_REALM_FAILED;
+			// initalize the client connection
+			connection_info->realm = POLY_REALM_CLIENT;
+			connection_info->realm_info.client.clientID = addNewClient(connection, out_connectionPointer);
 		}
+		else
+			return POLY_REALM_FAILED;
 
 		return POLY_REALM_PEER;
+
+	default:
+		return POLY_REALM_FAILED;
+
 	}
 }
 
