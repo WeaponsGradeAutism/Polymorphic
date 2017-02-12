@@ -18,6 +18,23 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="commands.c" />
+    <ClCompile Include="connections.c" />
+    <ClCompile Include="main.c" />
+    <ClCompile Include="sock.c" />
+    <ClCompile Include="sock_datatypes.c" />
+    <ClCompile Include="vector.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="commands.h" />
+    <ClInclude Include="connections.h" />
+    <ClInclude Include="definitions.h" />
+    <ClInclude Include="info_structure.h" />
+    <ClInclude Include="sock.h" />
+    <ClInclude Include="sock_datatypes.h" />
+    <ClInclude Include="vector.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{08E8C647-4D9B-4C76-B124-7320802AAA67}</ProjectGuid>
     <RootNamespace>Polymorphic</RootNamespace>
@@ -75,7 +92,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic;$(SolutionDir)Libs</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link />
@@ -91,7 +108,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic;$(SolutionDir)Libs</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link />
@@ -109,7 +126,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic;$(SolutionDir)Libs</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -126,7 +143,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic;$(SolutionDir)Libs</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -136,23 +153,6 @@
       <AdditionalDependencies>sqlite3.lib;libeay32MD.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="commands.c" />
-    <ClCompile Include="connections.c" />
-    <ClCompile Include="main.c" />
-    <ClCompile Include="vector.c" />
-    <ClCompile Include="sock.c" />
-    <ClCompile Include="sock_datatypes.c" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="connections.h" />
-    <ClInclude Include="commands.h" />
-    <ClInclude Include="definitions.h" />
-    <ClInclude Include="info_structure.h" />
-    <ClInclude Include="sock.h" />
-    <ClInclude Include="vector.h" />
-    <ClInclude Include="sock_datatypes.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
