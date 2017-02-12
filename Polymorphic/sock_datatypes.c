@@ -1,4 +1,4 @@
-#include <Win32/wsock_datatypes.h>
+#include <sock_datatypes.h>
 
 //---------------------------------------------------------------------------------------------------------------------------------------------
 //POLYM_CONNECTION self-filling array

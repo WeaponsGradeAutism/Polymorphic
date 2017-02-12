@@ -141,8 +141,8 @@
     <ClCompile Include="connections.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="vector.c" />
-    <ClCompile Include="Win32\wsock.c" />
-    <ClCompile Include="Win32\wsock_datatypes.c" />
+    <ClCompile Include="sock.c" />
+    <ClCompile Include="sock_datatypes.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="connections.h" />
@@ -151,7 +151,7 @@
     <ClInclude Include="info_structure.h" />
     <ClInclude Include="sock.h" />
     <ClInclude Include="vector.h" />
-    <ClInclude Include="Win32\wsock_datatypes.h" />
+    <ClInclude Include="sock_datatypes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

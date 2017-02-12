@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 
-#include <Win32/wsock_datatypes.h>
+#include <sock_datatypes.h>
 #include <commands.h>
 #include <connections.h>
 #include <definitions.h>

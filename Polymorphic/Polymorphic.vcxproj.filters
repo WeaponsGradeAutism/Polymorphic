@@ -21,16 +21,16 @@
     <ClCompile Include="vector.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Win32\wsock.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="commands.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Win32\wsock_datatypes.c">
+    <ClCompile Include="connections.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="connections.c">
+    <ClCompile Include="sock.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sock_datatypes.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -44,9 +44,6 @@
     <ClInclude Include="sock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Win32\wsock_datatypes.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="connections.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -54,6 +51,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="info_structure.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sock_datatypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
