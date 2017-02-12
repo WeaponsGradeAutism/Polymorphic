@@ -21,8 +21,8 @@
   <ItemGroup>
     <ClCompile Include="..\Polymorphic\commands.c" />
     <ClCompile Include="..\Polymorphic\connections.c" />
+    <ClCompile Include="..\Polymorphic\main.c" />
     <ClCompile Include="..\Polymorphic\vector.c" />
-    <ClCompile Include="main.c" />
     <ClCompile Include="sock.c" />
     <ClCompile Include="sock_datatypes.c" />
   </ItemGroup>
