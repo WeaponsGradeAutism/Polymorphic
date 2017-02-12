@@ -19,21 +19,21 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="commands.c" />
-    <ClCompile Include="connections.c" />
+    <ClCompile Include="..\Polymorphic\commands.c" />
+    <ClCompile Include="..\Polymorphic\connections.c" />
+    <ClCompile Include="..\Polymorphic\vector.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="sock.c" />
     <ClCompile Include="sock_datatypes.c" />
-    <ClCompile Include="vector.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="commands.h" />
-    <ClInclude Include="connections.h" />
-    <ClInclude Include="definitions.h" />
-    <ClInclude Include="info_structure.h" />
+    <ClInclude Include="..\Polymorphic\commands.h" />
+    <ClInclude Include="..\Polymorphic\connections.h" />
+    <ClInclude Include="..\Polymorphic\definitions.h" />
+    <ClInclude Include="..\Polymorphic\info_structure.h" />
+    <ClInclude Include="..\Polymorphic\vector.h" />
     <ClInclude Include="sock.h" />
     <ClInclude Include="sock_datatypes.h" />
-    <ClInclude Include="vector.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{08E8C647-4D9B-4C76-B124-7320802AAA67}</ProjectGuid>
@@ -92,7 +92,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs;$(SolutionDir)Polymorphic</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link />
@@ -108,7 +108,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs;$(SolutionDir)Polymorphic</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link />
@@ -126,7 +126,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs;$(SolutionDir)Polymorphic</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -143,7 +143,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Polymorphic-Win;$(SolutionDir)Libs;$(SolutionDir)Polymorphic</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>

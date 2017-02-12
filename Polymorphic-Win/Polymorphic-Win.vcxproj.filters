@@ -15,12 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="commands.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="connections.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -30,30 +24,36 @@
     <ClCompile Include="sock_datatypes.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="vector.c">
+    <ClCompile Include="..\Polymorphic\commands.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Polymorphic\connections.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Polymorphic\vector.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="commands.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="connections.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="definitions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="info_structure.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="sock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="sock_datatypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="vector.h">
+    <ClInclude Include="..\Polymorphic\commands.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Polymorphic\connections.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Polymorphic\definitions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Polymorphic\info_structure.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Polymorphic\vector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
