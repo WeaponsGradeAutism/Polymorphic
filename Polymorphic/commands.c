@@ -2,6 +2,7 @@
 #include <definitions.h>
 #include <stdint.h>
 #include <info_structure.h>
+#include <utils.h>
 
 #ifndef MSG_WAITALL
 #define MSG_WAITALL 0x8

@@ -19,7 +19,7 @@ typedef struct
 
 typedef struct
 {
-	int_array connectedPeers; // services that are currently using this peer connection
+	int_array connectedPeers; // services that are currently using this status connection
 } POLYM_SERVICE_STATUS;
 
 // realm specific connection info; initialized in connections.c when connections are initialized
