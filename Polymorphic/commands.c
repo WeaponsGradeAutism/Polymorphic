@@ -146,6 +146,7 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		if (0 != connectResult)
 			sendConnectErrorToService(connection, address, port, protocol, connectResult);
 		break;
+
 	case POLY_REALM_PEER:
 
 		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
