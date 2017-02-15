@@ -95,6 +95,7 @@
 
 
 // Polymorphic thread events
+#define POLYM_EVENT_CONNECT 0 // Socket is being initialized
 #define POLYM_EVENT_LISTEN 1 // Socket being listened on has recieved an event
 #define POLYM_EVENT_ASYNC_SEND 2 // An asynchronous send has completed
 #define POLYM_EVENT_SHUTDOWN 3 // Signals a thread to shut down

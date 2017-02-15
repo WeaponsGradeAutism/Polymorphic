@@ -43,30 +43,29 @@ void connection_array_extend(connection_array *vector, unsigned int amount)
 }
 
 ///<summary> Pushes a copy of the connection object into the array. </summary>
-int connection_array_push(connection_array *vector, POLYM_CONNECTION *connection, void **out_connectionPointer)
+POLYM_CONNECTION* connection_array_allocate(connection_array *vector)
 {
 	for (int x = vector->nextIndex; x < vector->size; x++)
 	{
 		if (vector->connections[x]->index < 0) // empty slot is denoted by an index of < 0
 		{
 			vector->connections[x]->index = x;
+			vector->connections[x]->info.realm = POLY_REALM_UNINIT;
 			++vector->count;
 			vector->nextIndex = x + 1;
-			memcpy_s(vector->connections[x], sizeof(POLYM_CONNECTION), connection, sizeof(POLYM_CONNECTION));
-			*out_connectionPointer = vector->connections[x];
-			return x;
+			return vector->connections[x];
 		}
 	}
 
 	// no open spaces found, expand the buffer for some more messages
 	connection_array_extend(vector, 10);
-	return connection_array_push(vector, connection, out_connectionPointer);
+	return connection_array_allocate(vector);
 }
 
 ///<summary> Returns the connection object pointer for the given index. </summary>
 POLYM_CONNECTION* connection_array_get(connection_array *vector, int index)
 {
-	if (index >= vector->size || index < 0 || vector->connections[index]->index < 0)
+	if (index >= vector->size || index < 0 || vector->connections[index]->index < 0 || vector->connections[index]->info.realm == POLY_REALM_UNINIT)
 		return NULL;
 
 	return vector->connections[index];

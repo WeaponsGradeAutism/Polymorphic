@@ -14,13 +14,17 @@ void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **o
 void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info);
 void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info);
 
-int addNewService(void* connection, void** out_connectionPointer);
+uint16_t allocateNewService(void **out_connectionInfoPointer);
+int addNewService(POLYM_CONNECTION_INFO *connection);
+void* freeService(uint16_t serviceID);
 int removeService(uint16_t serviceID);
-int addNewPeer(void* connection, void **out_connectionPointer);
+uint16_t allocateNewPeer(void **out_connectionInfoPointer);
+void* freePeer(uint16_t peerID);
 int removePeer(uint16_t peerID);
-int addNewClient(void* connection, void **out_connectionPointer);
+uint16_t allocateNewClient(void **out_connectionInfoPointer);
 int removeClient(uint16_t clientID);
-int closeUnitializedConnection(void *connection);
+void* freeClient(uint16_t clientID);
+int closeConnectionSocket(void *connection);
 
 void* getConnectionFromPeerID(uint16_t peerID);
 void* getConnectionFromServiceID(uint16_t serviceID);

@@ -22,24 +22,26 @@ typedef struct
 	int_array connectedPeers; // services that are currently using this status connection
 } POLYM_SERVICE_STATUS;
 
+typedef struct
+{
+	uint16_t dummy; // placeholder
+} POLYM_CLIENT_STATUS;
+
 // realm specific connection info; initialized in connections.c when connections are initialized
 typedef struct
 {
 	POLYM_SERVICE_STATUS status;
-	uint16_t serviceID; // the id # of the service this is running
-	uint8_t serviceKey[4]; // key given to service on initialization
 	char* serviceString; // the string that defines this service
 } POLYM_SERVICE_INFO;
 
 typedef struct
 {
 	POLYM_PEER_STATUS status;
-	uint16_t peerID; // we'll fill this out later
 } POLYM_PEER_INFO;
 
 typedef struct
 {
-	uint16_t clientID; // we'll fill this out later
+	POLYM_CLIENT_STATUS dummy;
 } POLYM_CLIENT_INFO;
 
 

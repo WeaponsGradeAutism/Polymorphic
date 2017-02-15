@@ -34,10 +34,8 @@ typedef struct _POLYM_OVERLAPPED {
 typedef struct {
 	SOCKET socket; // the actual socket handle itself. the star of the show
 
-	union address {
-		struct sockaddr_in ipv4;
-		struct sockaddr_in6 ipv6;
-	} address;
+	struct sockaddr address; // address that the socket is connected to
+
 	uint8_t protocol; // the layer-4 protocol used for this connection
 	uint8_t addrtype; //IPPROTO_IPV4 or IPPROTO_IPV6
 	uint8_t encryptionType; // kind of encryption key used for this connection
@@ -46,22 +44,20 @@ typedef struct {
 				   // connection information
 	POLYM_CONNECTION_INFO info; // info struct, containing info shared with the commands.c file. defnition in commands header file.
 	
-
 				   // connection internals
 	HANDLE checkAliveTimer; // the timer that periodically checks to see if the connection is still alive
 	HANDLE connectionMutex; // synchronizes access to this connection. used to sync both i/o use and status reads and writes
 
-							// IOCP internals
+                   // IOCP internals
 	int32_t byteCount; // bytecount for listening event
 	int32_t flags; // used for IOCP listening event
 	WSABUF buffer; // buffer where IOCP data is stored before completion packet is passed for listening event
-	uint8_t bufferMemory[2]; // memory storage for the buf element of WSABUF
+	uint8_t bufferMemory[2]; // memory storage for the buf element of WSABUF, used to recieve command code
 	POLYM_OVERLAPPED overlap; // reused overlapped info for listening event
 
 	int index; // used to keep track of position in connection array
 
-	
-} POLYM_CONNECTION; //TODO: rename to POLYM_CONNECTION
+} POLYM_CONNECTION;
 
 typedef struct {
 	POLYM_CONNECTION* connection;
@@ -92,7 +88,7 @@ typedef struct {
 
 void connection_array_init(connection_array *vector);
 void connection_array_init_capacity(connection_array *vector, int size);
-int connection_array_push(connection_array *vector, POLYM_CONNECTION *connection, void **out_connectionPointer);
+POLYM_CONNECTION* connection_array_allocate(connection_array *vector);
 POLYM_CONNECTION* connection_array_get(connection_array *vector, int index);
 int connection_array_get_all(connection_array *vector, int maxCount, POLYM_CONNECTION **OUT_connectionArray);
 void connection_array_free(connection_array *vector, int index);

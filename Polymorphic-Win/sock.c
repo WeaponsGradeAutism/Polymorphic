@@ -31,11 +31,13 @@ char serviceString[65536]; // stores the services string for this peer
 CRITICAL_SECTION serviceStringCriticalSection; // sync object
 int numWorkerThreads = 0; // number of worker threads currently active
 CRITICAL_SECTION numWorkerThreadsCriticalSection; // sync object
+HANDLE connectionTimerQueue; // timer queue where all the connection timers are stored
+CRITICAL_SECTION connectionTimerQueueCriticalSection; // sync object
+HANDLE completionPort; // stores all connections that are currently waiting on events
+CRITICAL_SECTION completionPortCriticalSection; // sync object
 
 //non-threaded variables
 THREAD_INFO acceptThread; // thread that accepts incoming connections
-HANDLE completionPort; // stores all connections that are currently waiting on events
-HANDLE checkAliveTimerQueue; // timer queue where all the check alive timers are stored
 const int maxWorkerThreads = 30; // number of worker threads to spawn to work connection events
 const int maxConnections = MAX_CONNECTIONS; // maximum number of connections this peer will allow
 const int checkAliveInterval = 300000; // the rate at which this peer will check to see if idle connections are still reachable
@@ -81,7 +83,6 @@ int closeConnection(POLYM_CONNECTION *connection)
 	switch (connection->protocol)
 	{
 	case POLY_PROTO_TCP:
-		DeleteTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, INVALID_HANDLE_VALUE);
 		break;
 	}
 	switch (connection->info.realm)
@@ -96,11 +97,12 @@ int closeConnection(POLYM_CONNECTION *connection)
 	return 0; // this will return 0 upon graceful shutdown, error code if disconnect command fails.
 }
 
-///<summary> Attempt to close a connection that isn't on the connection list gracefully using a generic pointer. </summary>
-int closeUnitializedConnection(void *connection)
+int closeConnectionSocket(void *connection)
 {
 	return closeConnection((POLYM_CONNECTION*)connection);
 }
+
+///<summary> Attempt to close a connection that isn't on the connection list gracefully using a generic pointer. </summary>
 
 ///<summary> Sends the check alive command. </summary>
 VOID CALLBACK checkAlive(PVOID connection, BOOLEAN fired) //TODO: this needs to be changed to a regular command
@@ -195,7 +197,7 @@ void lockConnectionMutex(POLYM_CONNECTION *connection)
 ///<summary> Locks the synchronization object associated with a connection object, using its info object. </summary>
 void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
 {
-	lockConnectionMutex(connection_array_get(&peerConnections, info->realm_info.peer.peerID));
+	lockConnectionMutex(connection_array_get(&peerConnections, info->connectionID));
 }
 
 ///<summary> Unlocks the synchronization object associated with a connection object.</summary>
@@ -220,9 +222,11 @@ DWORD WINAPI eventListener(LPVOID dummy)
 		switch (overlap->eventType)
 		{
 
+		case POLYM_EVENT_CONNECT:
+
+			//TODO: implement
+
 		case POLYM_EVENT_LISTEN: // Recieved data on one of the sockets that are listening.
-			// reset the check alive timer because of this activity
-			ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
 
 			// if nothing was recieved, the connection was closed. dispose of it.
 			if (bytesTansferred == 0)
@@ -237,8 +241,6 @@ DWORD WINAPI eventListener(LPVOID dummy)
 			WSARecv(connection->socket, &connection->buffer, 1, &connection->byteCount, &connection->flags, (OVERLAPPED*)&connection->overlap, NULL);
 
 		case POLYM_EVENT_ASYNC_SEND: // An asynchrounous send has completed
-			// reset the check alive timer because of this activity
-			ChangeTimerQueueTimer(checkAliveTimerQueue, connection->checkAliveTimer, checkAliveInterval, checkAliveInterval);
 
 			message_buffer_array_free(&messageSpace, ((message_buffer*)overlap->eventInfo)->index);
 			continue;
@@ -318,7 +320,7 @@ int getCurrentClientConnections(void** OUT_connectionArray, unsigned int maxCoun
 }
 
 ///<summary> Gets the address of a particular peer connection by ID, formatted as as string. </summary>
-int getPeerConnectionAddressString(int peerID, int stringBufferSize, char* out_stringBuffer)
+/*int getPeerConnectionAddressString(int peerID, int stringBufferSize, char* out_stringBuffer)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
 	POLYM_CONNECTION* connection = connection_array_get(&peerConnections, peerID);
@@ -332,7 +334,7 @@ int getPeerConnectionAddressString(int peerID, int stringBufferSize, char* out_s
 	default:
 		return -1; // TODO: this should never happen, but throw an error just in case
 	}
-}
+}*/
 
 ///<summary> Rebuilds the server's combined service string. </summary>
 void rebuildServiceString()
@@ -352,17 +354,42 @@ void rebuildServiceString()
 ///<summary> Adds the supplied service to the service list. </summary>
 ///<param name="out_connectionPointer"> (OUT) The connection object added to the service list. </param>
 ///<returns> The index value of the element added. </return>
-int addNewService(void* connection, void** out_connectionPointer)
+uint16_t allocateNewService(void **out_connectionInfoPointer)
 {
-	// TODO: need to fail if we have USHORT_MAX services without any vacancies. needs to return either negative error code or a value within the bounds of a USHORT.
+
+	EnterCriticalSection(&serviceConnectionsCriticalSection);
+	*out_connectionInfoPointer = &connection_array_allocate(&serviceConnections)->info;
+	LeaveCriticalSection(&serviceConnectionsCriticalSection);
+	return (*(POLYM_CONNECTION**)out_connectionInfoPointer)->index;
+}
+
+int addNewService(POLYM_CONNECTION_INFO *connection)
+{
 	EnterCriticalSection(&serviceStringCriticalSection);
-	strcat(serviceString, ((POLYM_CONNECTION*)connection)->info.realm_info.service.serviceString);
+	strcat(serviceString, ((POLYM_CONNECTION_INFO*)connection)->realm_info.service.serviceString);
 	strcat(serviceString, "|");
 	LeaveCriticalSection(&serviceStringCriticalSection);
+	return 0;
+}
+
+///<summary> Frees the allocated service connection. </summary>
+///<returns> Integer result code. </returns>
+POLYM_CONNECTION* freeServiceInternal(uint16_t serviceID)
+{
+	POLYM_CONNECTION* connection = connection_array_get(&serviceConnections, serviceID);
+	if (connection == NULL) return NULL;
+	connection_array_free(&serviceConnections, serviceID);
+
+	return connection;
+}
+
+///<summary> Wrapper for the free service command for external use. </summary>
+///<returns> Integer result code. </returns>
+void* freeService(uint16_t serviceID)
+{
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	int ret = connection_array_push(&serviceConnections, (POLYM_CONNECTION*)connection, (POLYM_CONNECTION**)out_connectionPointer);
+	return freeServiceInternal(serviceID);
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
-	return ret;
 }
 
 ///<summary> Removes the service from the list as specified by the service ID. </summary>
@@ -370,28 +397,45 @@ int addNewService(void* connection, void** out_connectionPointer)
 int removeService(uint16_t serviceID)
 {
 	EnterCriticalSection(&serviceConnectionsCriticalSection);
-	POLYM_CONNECTION* connection = connection_array_get(&serviceConnections, serviceID);
+	POLYM_CONNECTION *connection = freeServiceInternal(serviceID);
 
-	if (connection = NULL)
-		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
-
-	connection_array_free(&serviceConnections, serviceID);
-	LeaveCriticalSection(&serviceConnectionsCriticalSection);
+	if (connection == NULL) return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
 	
-	return closeConnection(connection);
-
+	int ret = closeConnection(connection);
+	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	rebuildServiceString();
+	return ret;
 }
 
 ///<summary> Adds the supplied peer to the peer list. </summary>
 ///<param name="out_connectionPointer"> (OUT) The connection object added to the peer list. </param>
 ///<returns> The index value of the element added. </return>
-int addNewPeer(void* connection, void **out_connectionPointer)
+uint16_t allocateNewPeer(void **out_connectionInfoPointer)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
-	int ret = connection_array_push(&peerConnections, (POLYM_CONNECTION*)connection, (POLYM_CONNECTION**)out_connectionPointer);
+	*out_connectionInfoPointer = &connection_array_allocate(&peerConnections)->info;
 	LeaveCriticalSection(&peerConnectionsCriticalSection);
-	return ret;
+	return (*(POLYM_CONNECTION**)out_connectionInfoPointer)->index;
+}
+
+///<summary> Frees the allocated peer connection. </summary>
+///<returns> Integer result code. </returns>
+POLYM_CONNECTION* freePeerInternal(uint16_t peerID)
+{
+	POLYM_CONNECTION* connection = connection_array_get(&peerConnections, peerID);
+	if (connection == NULL) return NULL;
+	connection_array_free(&peerConnections, peerID);
+
+	return connection;
+}
+
+///<summary> Wrapper for the free peer command for external use. </summary>
+///<returns> Integer result code. </returns>
+void* freePeer(uint16_t peerID)
+{
+	EnterCriticalSection(&peerConnectionsCriticalSection);
+	return freePeerInternal(peerID);
+	LeaveCriticalSection(&peerConnectionsCriticalSection);
 }
 
 ///<summary> Removes the peer from the list as specified by the peer ID. </summary>
@@ -399,26 +443,44 @@ int addNewPeer(void* connection, void **out_connectionPointer)
 int removePeer(uint16_t peerID)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
-	POLYM_CONNECTION* connection = connection_array_get(&peerConnections, peerID);
+	POLYM_CONNECTION *connection = freePeerInternal(peerID);
 
-	if (connection = NULL)
-		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
+	if (connection == NULL) return POLY_ERROR_PEER_DOES_NOT_EXIST;
 
-	connection_array_free(&peerConnections, peerID);
+	int ret = closeConnection(connection);
 	LeaveCriticalSection(&peerConnectionsCriticalSection);
-
-	return closeConnection(connection);
+	return ret;
 }
 
 ///<summary> Adds the supplied cleint to the client list. </summary>
 ///<param name="out_connectionPointer"> (OUT) The connection object added to the client list. </param>
 ///<returns> The index value of the element added. </return>
-int addNewClient(void* connection, void **out_connectionPointer)
+uint16_t allocateNewClient(void **out_connectionInfoPointer)
 {
 	EnterCriticalSection(&clientConnectionsCriticalSection);
-	int ret = connection_array_push(&clientConnections, (POLYM_CONNECTION*)connection, (POLYM_CONNECTION**)out_connectionPointer);
+	*out_connectionInfoPointer = &connection_array_allocate(&clientConnections)->info;
 	LeaveCriticalSection(&clientConnectionsCriticalSection);
-	return ret;
+	return (*(POLYM_CONNECTION**)out_connectionInfoPointer)->index;
+}
+
+///<summary> Frees the allocated client connection. </summary>
+///<returns> Integer result code. </returns>
+POLYM_CONNECTION* freeClientInternal(uint16_t clientID)
+{
+	POLYM_CONNECTION* connection = connection_array_get(&clientConnections, clientID);
+	if (connection == NULL) return NULL;
+	connection_array_free(&clientConnections, clientID);
+
+	return connection;
+}
+
+///<summary> Wrapper for the free client command for external use. </summary>
+///<returns> Integer result code. </returns>
+void* freeClient(uint16_t clientID)
+{
+	EnterCriticalSection(&clientConnectionsCriticalSection);
+	return freeClientInternal(clientID);
+	LeaveCriticalSection(&clientConnectionsCriticalSection);
 }
 
 ///<summary> Removes the client from the list as specified by the client ID. </summary>
@@ -426,22 +488,20 @@ int addNewClient(void* connection, void **out_connectionPointer)
 int removeClient(uint16_t clientID)
 {
 	EnterCriticalSection(&clientConnectionsCriticalSection);
-	POLYM_CONNECTION* connection = connection_array_get(&clientConnections, clientID);
+	POLYM_CONNECTION *connection = freeClientInternal(clientID);
 
-	if (connection = NULL)
-		return POLY_ERROR_SERVICE_DOES_NOT_EXIST;
+	if (connection == NULL) return POLY_ERROR_CLIENT_DOES_NOT_EXIST;
 
-	connection_array_free(&clientConnections, clientID);
+	int ret = closeConnection(connection);
 	LeaveCriticalSection(&clientConnectionsCriticalSection);
-
-	return closeConnection(connection);
+	return ret;
 }
 
 ///<summary> Gets the connection object for the specified peer ID. </summary>
 void* getConnectionFromPeerID(uint16_t peerID)
 {
 	EnterCriticalSection(&peerConnectionsCriticalSection);
-	void *ret = connection_array_get(&peerConnections, peerID);
+	void *ret = connection_array_get(&serviceConnections, peerID);
 	LeaveCriticalSection(&peerConnectionsCriticalSection);
 	return ret;
 }
@@ -479,25 +539,23 @@ int compareAddresses(struct in_addr address1, struct in_addr address2)
 ///<summary> Checks if a given address is already connected to the server. </summary>
 int addressConnected(char *stringAddress, uint16_t port, uint8_t protocol)
 {
-	struct in_addr address1;
+	struct in_addr address1, *address2;
 	inet_pton(AF_INET, stringAddress, &address1);
 	POLYM_CONNECTION* connections[MAX_CONNECTIONS];
 	int numConnections = getCurrentPeerConnections((void**)&connections, MAX_CONNECTIONS);
 
 	for (int x = 0; x < numConnections; x++)
 	{
-		if (0 != compareAddresses(address1, connections[x]->address.ipv4.sin_addr) && port == connections[x]->address.ipv4.sin_port && protocol == connections[x]->protocol)
+		address2 = (struct in_addr*)&connections[x]->address;
+		if (0 != compareAddresses(address1, *address2) && port == ((struct sockaddr_in*)address2)->sin_port && protocol == connections[x]->protocol)
 			return x;
 	}
 	return -1;
 }
 
-///<summary> Begin the process of initial.izing the supplied TCP connection. </summary>
+///<summary> Begin the process of initializing the supplied TCP connection. </summary>
 void initializeNewTCPConnection(POLYM_CONNECTION *connection)
 {
-	const DWORD sock_timeout = 5 * 1000;
-	setsockopt(connection->socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&sock_timeout, sizeof(sock_timeout));
-	setsockopt(connection->socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&sock_timeout, sizeof(sock_timeout));
 	connection->overlap.eventInfo = NULL;
 	connection->overlap.eventType = 0;
 	initializeOverlap(&connection->overlap);
@@ -576,7 +634,7 @@ void* openNewTCPConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO 
 	*out_connectionInfo = &connection.info;
 
 	POLYM_CONNECTION *connectionPointer;
-	connection.info.realm_info.peer.peerID = addNewPeer(&connection, &connectionPointer);
+	connection.info.connectionID = allocateNewPeer(&connectionPointer);
 	return connectionPointer;
 }
 
@@ -598,9 +656,16 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 	{
 
 		// create a new empty connection object and wait for new connections
+
+		//POLYM_CONNECTION connection;
 		int structlength = sizeof(struct sockaddr);
-		POLYM_CONNECTION connection;
-		connection.socket = accept(acceptSocket, (struct sockaddr*)&connection.address.ipv4, &structlength);
+		struct sockaddr address;
+		SOCKET socket = accept(acceptSocket, &address, &structlength);
+
+		// set timeouts on socket
+		const DWORD sock_timeout = 5 * 1000;
+		setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&sock_timeout, sizeof(sock_timeout));
+		setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&sock_timeout, sizeof(sock_timeout));
 		
 		// don't proceed if shutting down. accept will unblock but no connection will be present. break instead.
 		if (isShutdown)
@@ -612,27 +677,28 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 			// send error code for full
 			char buffer[2];
 			insertShortIntoBuffer(buffer, POLY_ERROR_MAX_CONNECTIONS);
-			send(connection.socket, buffer, 2, 0);
-			shutdown(connection.socket, SD_BOTH);
-			closesocket(connection.socket);
+			send(socket, buffer, 2, 0);
+			shutdown(socket, SD_BOTH);
+			closesocket(socket);
 		}
 		else
 		{
 			//set up the socket and put it on the IOCP listening queue
 			printf("CONNECTIONS: %i\n", ++numConnections);
-			initializeNewTCPConnection(&connection);
-			
 
 			// OPTI: initializing connections may need to become multithreaded.
 			POLYM_CONNECTION *newConnectionPointer;
-			if (POLY_REALM_FAILED == initializeIncomingConnection(&connection, &connection.info, &newConnectionPointer))
+			if (POLY_REALM_FAILED == initializeIncomingConnection(&socket, &newConnectionPointer))
 			{
 				printf("CONNECTION FAILED.\n");
-				closeConnection(&connection);
+				shutdown(socket, SD_BOTH);
+				closesocket(socket);
 			}
 			else
 			{
-				CreateTimerQueueTimer(&newConnectionPointer->checkAliveTimer, checkAliveTimerQueue, newConnectionTimeout, newConnectionPointer, newConnectionTimeoutInterval, newConnectionTimeoutInterval, 0);
+				newConnectionPointer->socket = socket;
+				newConnectionPointer->address = address;
+				initializeNewTCPConnection(newConnectionPointer);
 				CreateIoCompletionPort((HANDLE)newConnectionPointer->socket, completionPort, (ULONG_PTR)newConnectionPointer, 0);
 				WSARecv(newConnectionPointer->socket, &newConnectionPointer->buffer, 1, &newConnectionPointer->byteCount, &newConnectionPointer->flags, (OVERLAPPED*)&newConnectionPointer->overlap, NULL);
 			}
@@ -646,7 +712,7 @@ DWORD WINAPI acceptNewTCPConnections(LPVOID dummy)
 int startListenSocket(char* port) 
 {
 	initSocketLib();
-	checkAliveTimerQueue = CreateTimerQueue();
+	connectionTimerQueue = CreateTimerQueue();
 
 	InitializeCriticalSection(&peerConnectionsCriticalSection);
 	InitializeCriticalSection(&serviceConnectionsCriticalSection);
@@ -654,6 +720,8 @@ int startListenSocket(char* port)
 	InitializeCriticalSection(&serviceStringCriticalSection);
 	InitializeCriticalSection(&messageSpaceCriticalSection);
 	InitializeCriticalSection(&numWorkerThreadsCriticalSection);
+	InitializeCriticalSection(&connectionTimerQueueCriticalSection);
+	InitializeCriticalSection(&completionPortCriticalSection);
 
 	struct addrinfo *result = NULL, *ptr = NULL, hints;
 

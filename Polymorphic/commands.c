@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <info_structure.h>
 #include <utils.h>
+#include <sock.h>
 
 #ifndef MSG_WAITALL
 #define MSG_WAITALL 0x8
@@ -203,7 +204,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			peerID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
+		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_SOURCE_ID], connection_info->connectionID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength))
 		{
 			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
@@ -236,7 +237,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID], connection_info->realm_info.peer.peerID);
+		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID], connection_info->connectionID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength))
 		{
 			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
@@ -297,7 +298,7 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
+		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID], connection_info->connectionID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE], messageLength))
 		{
 			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
@@ -384,7 +385,7 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->realm_info.service.serviceID);
+		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->connectionID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength))
 		{
 			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
@@ -416,7 +417,7 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 			destID = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->realm_info.client.clientID);
+		insertShortIntoBuffer(&message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->connectionID);
 		if (0 != trySockRecv(connection, &message[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength))
 		{
 			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
