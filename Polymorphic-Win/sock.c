@@ -121,13 +121,17 @@ VOID CALLBACK newConnectionTimeout(PVOID connection, BOOLEAN fired)
 ///<summary> Send command for TCP based connections. </summary>
 int tcpSend(SOCKET socket, uint8_t *buffer, uint32_t length, int32_t flags)
 {
-	return send(socket, buffer, length, flags);
-}
+	int index = 0, attempts = 0;
+	while (index < length && attempts < 10)
+	{
+		index += send(socket, &buffer[index], length - index, flags);
+		++attempts;
+	}
 
-///<summary> Recv command for TCP based connections. </summary>
-int tcpRecv(SOCKET socket, uint8_t *buffer, uint32_t length, int32_t flags)
-{
-	return recv(socket, buffer, length, flags);
+	if (attempts == 10)
+		return -1;
+	else
+		return 0;
 }
 
 ///<summary> Send command for a socket, using its protocol's send command. </summary>
@@ -138,6 +142,26 @@ int sockSend(void* connection, uint8_t *buffer, uint32_t length)
 	{
 	case POLY_PROTO_TCP:
 		return tcpSend(connPointer->socket, buffer, length, 0);
+		break;
+	}
+	return -1;
+}
+
+///<summary> Recv command for TCP based connections. </summary>
+int tcpRecv(SOCKET socket, uint8_t *buffer, uint32_t length, int32_t flags)
+{
+	return recv(socket, buffer, length, flags);
+}
+
+///<summary> Recv command for a socket, using its protocol's recv command. </summary>
+int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
+{
+	POLYM_CONNECTION* connPointer = ((POLYM_CONNECTION*)connection);
+
+	switch (connPointer->protocol)
+	{
+	case POLY_PROTO_TCP:
+		return tcpRecv(connPointer->socket, buffer, length, MSG_WAITALL);
 		break;
 	}
 	return -1;
@@ -169,20 +193,6 @@ int sockSendAsync(void* connection, POLYM_MESSAGE_BUFFER *buffer)
 	{
 	case POLY_PROTO_TCP:
 		return tcpSendAsync( ((POLYM_CONNECTION*)connection)->socket, &message_buffer->wsabuf, 0, (OVERLAPPED*)&message_buffer->overlap );
-		break;
-	}
-	return -1;
-}
-
-///<summary> Recv command for a socket, using its protocol's recv command. </summary>
-int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
-{
-	POLYM_CONNECTION* connPointer = ((POLYM_CONNECTION*)connection);
-
-	switch (connPointer->protocol)
-	{
-	case POLY_PROTO_TCP:
-		return tcpRecv(connPointer->socket, buffer, length, MSG_WAITALL);
 		break;
 	}
 	return -1;
