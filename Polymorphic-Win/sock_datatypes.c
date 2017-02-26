@@ -6,7 +6,7 @@
 ///<summary> Initialize the connection array. </summary>
 void connection_array_init(connection_array *vector) 
 {
-	connection_array_init_capacity(vector, VECTOR_INITIAL_CAPACITY);
+	connection_array_init_capacity(vector, POLYM_INITIAL_CONNECTION_STORAGE_SIZE);
 }
 
 ///<summary> Initialize the connection array at a given capacity. </summary>
@@ -138,7 +138,7 @@ void message_buffer_init(message_buffer *buffer)
 ///<summary> Initializes the message buffer array at the default size. </summary>
 void message_buffer_array_init(message_buffer_array *vector)
 {
-	message_buffer_array_init_capacity(vector, VECTOR_INITIAL_CAPACITY);
+	message_buffer_array_init_capacity(vector, POLYM_INITIAL_MESSAGE_BUFFER_SIZE);
 }
 
 ///<summary> Initializes the message buffer array at the given size. </summary>
