@@ -176,31 +176,6 @@ int sockSendAsync(void* connection, POLYM_MESSAGE_BUFFER *buffer)
 	return -1;
 }
 
-int enqueueNewConnectionFromService(POLYM_CONNECTION_INFO *service, uint32_t address, uint16_t port, uint8_t protocol)
-{
-
-	// allocate a new memory allocation to store in info for the new connection
-	EnterCriticalSection(&memoryAllocationsCriticalSection);
-	memory_allocation *newConnectionInfo = memory_allocation_array_allocate(&memoryAllocations);
-	LeaveCriticalSection(&memoryAllocationsCriticalSection);
-
-	// convert the integer address into string presentation
-	intIPtoStringIP(address, newConnectionInfo->connect_buffer.stringAddress, 16);
-
-	// add the rest of the info to the info object
-	newConnectionInfo->connect_buffer.service = service;
-	newConnectionInfo->connect_buffer.port = port;
-	newConnectionInfo->connect_buffer.protocol = protocol;
-
-	// copy buffer to space and set length
-	newConnectionInfo->connect_buffer.overlap.eventType = POLYM_EVENT_CONNECT;
-	newConnectionInfo->connect_buffer.overlap.eventInfo = newConnectionInfo;
-	initializeOverlap(&newConnectionInfo->connect_buffer.overlap);
-
-	PostQueuedCompletionStatus(completionPort, 0, (ULONG_PTR)NULL, (OVERLAPPED*)&newConnectionInfo->connect_buffer.overlap);
-
-}
-
 ///<summary> Recv command for a socket, using its protocol's recv command. </summary>
 int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
 {
@@ -255,21 +230,6 @@ DWORD WINAPI eventListener(LPVOID dummy)
 
 			break;
 
-		case POLYM_EVENT_CONNECT:
-
-			//TODO: implement
-
-		{
-			memory_allocation *allocation = (memory_allocation*)overlap->eventInfo;
-			uint16_t connectionID;
-
-			uint16_t resultCode = initializeOutgoingConnection(allocation->connect_buffer.stringAddress, allocation->connect_buffer.port, allocation->connect_buffer.protocol, &connectionID);
-
-			//TODO: send PEER_CONNECTION or CONNECTION_ERROR messages to the requesting service connection as appropriate
-		}
-
-			break;
-
 		case POLYM_EVENT_LISTEN: // Recieved data on one of the sockets that are listening.
 
 			// if nothing was recieved, the connection was closed. dispose of it.
@@ -277,9 +237,7 @@ DWORD WINAPI eventListener(LPVOID dummy)
 				closeConnection(connection);
 
 			// process the command
-			lockConnectionMutex(connection);
 			processCommand((void*)connection, connection->buffer.buf, &connection->info);
-			unlockConnectionMutex(connection);
 
 			//rearm the connection on the listen list
 			WSARecv(connection->socket, &connection->buffer, 1, &connection->byteCount, &connection->flags, (OVERLAPPED*)&connection->overlap, NULL);
@@ -311,6 +269,12 @@ DWORD WINAPI eventListener(LPVOID dummy)
 			return 0;
 		}
 	}
+}
+
+int rearmListenSocket(void *connection)
+{
+	POLYM_CONNECTION *connection_casted = (POLYM_CONNECTION*)connection;
+	WSARecv(connection_casted->socket, &connection_casted->buffer, 1, &connection_casted->byteCount, &connection_casted->flags, (OVERLAPPED*)&connection_casted->overlap, NULL);
 }
 
 ///<summary> Closes the specified number of threads by queueing <c>POLYM_EVENT_SHUTDOWN</c> events. </summary>

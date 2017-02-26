@@ -24,6 +24,19 @@
 
 //BEGIN poly command info ------------------------
 
+//CONNECT
+#define POLY_COMMAND_CONNECT_MAX_SIZE 10 // The maximum total size of a CONNECT_ERROR command
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_IPV4_ADDRESS 2 // The offset for the ipv4 address in CONNECT command 
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_LAYER4_PORT 6 // The offset for the layer4 port in CONNECT command 
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_PROTOCOL 8 // The offset for the protocol in CONNECT command 
+
+//CONNECT_ERROR
+#define POLY_COMMAND_CONNECT_ERROR_MAX_SIZE 12 // The maximum total size of a CONNECT_ERROR command
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_IPV4_ADDRESS 2 // The offset for the ipv4 address in CONNECT_ERROR command 
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_LAYER4_PORT 6 // The offset for the layer4 port in CONNECT_ERROR command 
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_PROTOCOL 8 // The offset for the protocol in CONNECT_ERROR command 
+#define POLY_COMMAND_CONNECT_ERROR_OFFSET_ERROR_CODE 10 // The offset for the error code in CONNECT_ERROR command 
+
 //MESSAGE
 #define POLY_COMMAND_MESSAGE_MAX_SIZE 65546 // The maximum total size of a MESSAGE command
 #define POLY_COMMAND_MESSAGE_OFFSET_PEER_ID 2 // The offset for the peer ID in MESSAGE command 
@@ -53,13 +66,6 @@
 //PEER_DISCONNECTED
 #define POLY_COMMAND_PEER_DISCONNECTED_MAX_SIZE 4 // The maximum total size of a PEER_DISCONNECTED command
 #define POLY_COMMAND_PEER_DISCONNECTED_OFFSET_PEER_ID 2 // The offset for the peer ID in PEER_DISCONNECTED command 
-
-//CONNECT_ERROR
-#define POLY_COMMAND_CONNECT_ERROR_MAX_SIZE 12 // The maximum total size of a CONNECT_ERROR command
-#define POLY_COMMAND_CONNECT_ERROR_OFFSET_IPV4_ADDRESS 2 // The offset for the ipv4 address in CONNECT_ERROR command 
-#define POLY_COMMAND_CONNECT_ERROR_OFFSET_LAYER4_PORT 6 // The offset for the layer4 port in CONNECT_ERROR command 
-#define POLY_COMMAND_CONNECT_ERROR_OFFSET_PROTOCOL 8 // The offset for the protocol in CONNECT_ERROR command 
-#define POLY_COMMAND_CONNECT_ERROR_OFFSET_ERROR_CODE 10 // The offset for the error code in CONNECT_ERROR command 
 
 //END poly command info --------------------------
 
@@ -96,8 +102,7 @@
 
 // Polymorphic thread events
 #define POLYM_EVENT_ACCEPT 0 // Socket is being initialized
-#define POLYM_EVENT_CONNECT 1 // An outbound connection to a new peer
-#define POLYM_EVENT_LISTEN 2 // Socket being listened on has recieved an event
-#define POLYM_EVENT_ASYNC_SEND 3 // An asynchronous send has completed
-#define POLYM_EVENT_SHUTDOWN 4 // Signals a thread to shut down
+#define POLYM_EVENT_LISTEN 1 // Socket being listened on has recieved an event
+#define POLYM_EVENT_ASYNC_SEND 2 // An asynchronous send has completed
+#define POLYM_EVENT_SHUTDOWN 3 // Signals a thread to shut down
 

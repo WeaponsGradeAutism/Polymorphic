@@ -96,9 +96,11 @@ X-byte service string
 Upon connection success, a NEW_CONNECTION event will be sent to all listening services.
 
 (s==>p)
-4-byte IPv4 address
-2-byte protocol 
-2-byte Layer-4 port
+0: 2-byte command code
+2: 4-byte IPv4 address
+6: 2-byte protocol 
+8: 2-byte Layer-4 port
+10: END
 
 
 
