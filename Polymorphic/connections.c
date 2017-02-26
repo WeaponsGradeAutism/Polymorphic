@@ -246,9 +246,9 @@ void connectServiceToPeer(POLYM_CONNECTION_INFO *service, uint32_t address, uint
 		}
 
 		// if not, add it to the service's list of connected peers and vice versa
-		int_vector_append(&service->realm_info.service.status.connectedPeers, peerID);
+		int_array_append(&service->realm_info.service.status.connectedPeers, peerID);
 		lockConnectionMutexByInfo(peer);
-		int_vector_append(&peer->realm_info.service.status.connectedPeers, service->connectionID);
+		int_array_append(&peer->realm_info.service.status.connectedPeers, service->connectionID);
 		unlockConnectionMutexByInfo(peer);
 		// TODO: send PEER_CONNECTION command to service to inform it that it is now associated with the peer id
 

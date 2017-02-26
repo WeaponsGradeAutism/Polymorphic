@@ -12,5 +12,3 @@ uint32_t getLongFromBuffer(uint8_t* buffer);
 uint32_t getLongFromBufferNC(uint8_t* buffer);
 
 const char* intIPtoStringIP(uint32_t ipv4AddressLong, char *OUT_StringIP, int bufferSize);
-
-POLYM_MESSAGE_BUFFER* allocateBufferObject();

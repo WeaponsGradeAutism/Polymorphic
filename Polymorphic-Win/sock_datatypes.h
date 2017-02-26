@@ -72,6 +72,16 @@ typedef struct {
 	int nextIndex; // the next index to scan for openings in the array
 } connection_array;
 
+void connection_array_init(connection_array *vector);
+void connection_array_init_capacity(connection_array *vector, int size);
+POLYM_CONNECTION* connection_array_allocate(connection_array *vector);
+POLYM_CONNECTION* connection_array_get(connection_array *vector, int index);
+int connection_array_get_all(connection_array *vector, int maxCount, POLYM_CONNECTION **OUT_connectionArray);
+void connection_array_free(connection_array *vector, int index);
+void connection_array_free_container(connection_array *vector);
+
+
+
 typedef struct {
 	WSABUF wsabuf;
 	POLYM_OVERLAPPED overlap;
@@ -86,14 +96,6 @@ typedef struct {
 	int nextIndex; // the next index to scan for openings in the array
 } message_buffer_array;
 
-void connection_array_init(connection_array *vector);
-void connection_array_init_capacity(connection_array *vector, int size);
-POLYM_CONNECTION* connection_array_allocate(connection_array *vector);
-POLYM_CONNECTION* connection_array_get(connection_array *vector, int index);
-int connection_array_get_all(connection_array *vector, int maxCount, POLYM_CONNECTION **OUT_connectionArray);
-void connection_array_free(connection_array *vector, int index);
-void connection_array_free_container(connection_array *vector);
-
 void message_buffer_init(message_buffer *buffer);
 
 void message_buffer_array_init(message_buffer_array *vector);
@@ -101,40 +103,3 @@ void message_buffer_array_init_capacity(message_buffer_array *vector, int size);
 message_buffer* message_buffer_array_allocate(message_buffer_array *vector);
 void message_buffer_array_free(message_buffer_array *vector, int index);
 void message_buffer_array_free_container(message_buffer_array *vector);
-
-
-typedef struct
-{
-	uint32_t address;
-} accept_buffer;
-
-typedef struct
-{
-	POLYM_OVERLAPPED overlap;
-	char stringAddress[16];
-	uint16_t port;
-	uint8_t protocol;
-	POLYM_CONNECTION_INFO *service;
-} connect_buffer;
-
-typedef struct {
-	union allocation
-	{
-		accept_buffer accept_buffer;
-		connect_buffer connect_buffer;
-	};
-	int index;
-} memory_allocation;
-
-typedef struct {
-	memory_allocation **messages; // pointer to a message_buffer* array
-	int size; // the current size of the message array
-	int count; // the number of messages currently on the array
-	int nextIndex; // the next index to scan for openings in the array
-} memory_allocation_array;
-
-void memory_allocation_array_init(memory_allocation_array *vector);
-void memory_allocation_array_init_capacity(memory_allocation_array *vector, int size);
-memory_allocation* memory_allocation_array_allocate(memory_allocation_array *vector);
-void memory_allocation_array_free(memory_allocation_array *vector, int index);
-void memory_allocation_array_free_container(memory_allocation_array *vector);

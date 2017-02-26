@@ -27,8 +27,6 @@ connection_array clientConnections; // stores client connections by ID
 CRITICAL_SECTION clientConnectionsCriticalSection; // sync object
 message_buffer_array messageSpace; // stores main service connections by ID
 CRITICAL_SECTION messageSpaceCriticalSection; // sync object
-memory_allocation_array memoryAllocations; // stores other memory allocationss
-CRITICAL_SECTION memoryAllocationsCriticalSection; // sync object
 char serviceString[65536]; // stores the services string for this peer
 CRITICAL_SECTION serviceStringCriticalSection; // sync object
 int numWorkerThreads = 0; // number of worker threads currently active
@@ -207,6 +205,11 @@ void unlockConnectionMutex(POLYM_CONNECTION *connection)
 {
 	LeaveCriticalSection(connection->connectionMutex);
 }
+///<summary> Unlocks the synchronization object associated with a connection object, using its info object. </summary>
+void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
+{
+	unlockConnectionMutex(connection_array_get(&peerConnections, info->connectionID));
+}
 
 ///<summary> This is the main event loop that worker threads will run. </summary>
 DWORD WINAPI eventListener(LPVOID dummy)
@@ -274,7 +277,7 @@ DWORD WINAPI eventListener(LPVOID dummy)
 int rearmListenSocket(void *connection)
 {
 	POLYM_CONNECTION *connection_casted = (POLYM_CONNECTION*)connection;
-	WSARecv(connection_casted->socket, &connection_casted->buffer, 1, &connection_casted->byteCount, &connection_casted->flags, (OVERLAPPED*)&connection_casted->overlap, NULL);
+	return WSARecv(connection_casted->socket, &connection_casted->buffer, 1, &connection_casted->byteCount, &connection_casted->flags, (OVERLAPPED*)&connection_casted->overlap, NULL);
 }
 
 ///<summary> Closes the specified number of threads by queueing <c>POLYM_EVENT_SHUTDOWN</c> events. </summary>
@@ -755,7 +758,6 @@ int startListenSocket(char* port)
 	InitializeCriticalSection(&numWorkerThreadsCriticalSection);
 	InitializeCriticalSection(&connectionTimerQueueCriticalSection);
 	InitializeCriticalSection(&completionPortCriticalSection);
-	InitializeCriticalSection(&memoryAllocationsCriticalSection);
 
 	struct addrinfo *result = NULL, *ptr = NULL, hints;
 
@@ -837,12 +839,4 @@ int startListenSocket(char* port)
 	);
 
 	return 1;
-}
-
-//Tags: MUST_BE_FREED TEST_CASE_BUFFER
-POLYM_MESSAGE_BUFFER* allocateBufferObject()
-{
-	message_buffer *message_buffer = message_buffer_array_allocate(&messageSpace);
-	message_buffer->buffer_object.containerObject = message_buffer;
-	return &message_buffer->buffer_object;
 }
