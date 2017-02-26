@@ -36,3 +36,4 @@ int getCurrentPeerConnections(void** OUT_connectionArray, unsigned int maxCount)
 int getCurrentClientConnections(void** OUT_connectionArray, unsigned int maxCount);
 
 int addressConnected(char *stringAddress, uint16_t port, uint8_t protocol);
+int intAddressConnected(uint32_t address, uint16_t port, uint8_t protocol);

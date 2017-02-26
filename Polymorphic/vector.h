@@ -56,6 +56,7 @@ void int_vector_init_capacity(int_vector *vector, int capacity);
 void int_vector_append(int_vector *vector, int value);
 int int_vector_get(int_vector *vector, int index);
 bool int_vector_set(int_vector *vector, int index, int value);
+int int_vector_find(int_vector *vector, int value);
 void int_vector_trim(int_vector *vector);
 void int_vector_free(int_vector *vector);
 
@@ -72,6 +73,7 @@ int int_array_append(int_array *vector, int value);
 int int_array_push(int_array *vector, int value);
 int int_array_delete(int_array *vector, int index);
 int int_array_get(int_array *vector, int index);
+int int_array_find(int_array *vector, int value);
 int int_array_size(int_array *vector);
 int int_array_count(int_array *vector);
 bool int_array_set(int_array *vector, int index, int value);

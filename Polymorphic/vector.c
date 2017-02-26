@@ -145,6 +145,18 @@ bool int_vector_set(int_vector *vector, int index, int value) {
 	return true;
 }
 
+int int_vector_find(int_vector *vector, int value)
+{
+	for (int index = 0; index < vector->size; index++)
+	{
+		if (int_vector_get(vector, index) == value)
+		{
+			return index;
+		}
+	}
+	return -1;
+}
+
 void int_vector_trim(int_vector *vector) {
 	//trim capacity down to the size of the array
 	if (vector->size == 0) 
@@ -289,6 +301,19 @@ int int_array_get(int_array *vector, int index) {
 	}
 
 	return vector->members.data[index];
+}
+
+
+int int_array_find(int_array *vector, int value)
+{
+	for (int index = 0; index < vector->members.size; index++)
+	{
+		if (int_array_get(vector, index) == value)
+		{
+			return index;
+		}
+	}
+	return -1;
 }
 
 int int_array_size(int_array *vector) 

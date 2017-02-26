@@ -101,3 +101,40 @@ void message_buffer_array_init_capacity(message_buffer_array *vector, int size);
 message_buffer* message_buffer_array_allocate(message_buffer_array *vector);
 void message_buffer_array_free(message_buffer_array *vector, int index);
 void message_buffer_array_free_container(message_buffer_array *vector);
+
+
+typedef struct
+{
+	uint32_t address;
+} accept_buffer;
+
+typedef struct
+{
+	POLYM_OVERLAPPED overlap;
+	char stringAddress[16];
+	uint16_t port;
+	uint8_t protocol;
+	POLYM_CONNECTION_INFO *service;
+} connect_buffer;
+
+typedef struct {
+	union allocation
+	{
+		accept_buffer accept_buffer;
+		connect_buffer connect_buffer;
+	};
+	int index;
+} memory_allocation;
+
+typedef struct {
+	memory_allocation **messages; // pointer to a message_buffer* array
+	int size; // the current size of the message array
+	int count; // the number of messages currently on the array
+	int nextIndex; // the next index to scan for openings in the array
+} memory_allocation_array;
+
+void memory_allocation_array_init(memory_allocation_array *vector);
+void memory_allocation_array_init_capacity(memory_allocation_array *vector, int size);
+memory_allocation* memory_allocation_array_allocate(memory_allocation_array *vector);
+void memory_allocation_array_free(memory_allocation_array *vector, int index);
+void memory_allocation_array_free_container(memory_allocation_array *vector);

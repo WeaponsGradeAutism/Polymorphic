@@ -124,27 +124,8 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint16_t port = getShortFromBuffer(&buffer[4]);
 		uint8_t protocol = (uint8_t)getShortFromBuffer(&buffer[6]);
 
-		// convert the integer address into string presentation
-		char stringAddress[16];
-		intIPtoStringIP(address, stringAddress, 16);
+		connectServiceToPeer(connection_info, address, port, protocol);
 
-		//don't connect to a loopback address
-		if (address >= 2130706433 && address <= 2147483646)
-		{
-			sendConnectErrorToService(connection, address, port, protocol, POLY_ERROR_INVALID_ADDRESS);
-			return;
-		}
-
-		// check to see if the peer is already connected
-		int checkAddressConnected = addressConnected(stringAddress, port, protocol);
-		if (checkAddressConnected != -1)
-		{
-
-		}
-		void *newConnection;
-		uint16_t connectResult = initializeOutgoingConnection(stringAddress, port, protocol, &newConnection);
-		if (0 != connectResult)
-			sendConnectErrorToService(connection, address, port, protocol, connectResult);
 		break;
 
 	case POLY_REALM_PEER:

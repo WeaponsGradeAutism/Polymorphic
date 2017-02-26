@@ -27,6 +27,8 @@ connection_array clientConnections; // stores client connections by ID
 CRITICAL_SECTION clientConnectionsCriticalSection; // sync object
 message_buffer_array messageSpace; // stores main service connections by ID
 CRITICAL_SECTION messageSpaceCriticalSection; // sync object
+memory_allocation_array memoryAllocations; // stores other memory allocationss
+CRITICAL_SECTION memoryAllocationsCriticalSection; // sync object
 char serviceString[65536]; // stores the services string for this peer
 CRITICAL_SECTION serviceStringCriticalSection; // sync object
 int numWorkerThreads = 0; // number of worker threads currently active
@@ -162,7 +164,7 @@ int sockSendAsync(void* connection, POLYM_MESSAGE_BUFFER *buffer)
 
 	// create the overlapped info for the event 
 	message_buffer->overlap.eventType = POLYM_EVENT_ASYNC_SEND;
-	message_buffer->overlap.eventInfo = &message_buffer;
+	message_buffer->overlap.eventInfo = message_buffer;
 	initializeOverlap(&message_buffer->overlap);
 
 	switch ( ((POLYM_CONNECTION*)connection)->protocol )
@@ -172,6 +174,31 @@ int sockSendAsync(void* connection, POLYM_MESSAGE_BUFFER *buffer)
 		break;
 	}
 	return -1;
+}
+
+int enqueueNewConnectionFromService(POLYM_CONNECTION_INFO *service, uint32_t address, uint16_t port, uint8_t protocol)
+{
+
+	// allocate a new memory allocation to store in info for the new connection
+	EnterCriticalSection(&memoryAllocationsCriticalSection);
+	memory_allocation *newConnectionInfo = memory_allocation_array_allocate(&memoryAllocations);
+	LeaveCriticalSection(&memoryAllocationsCriticalSection);
+
+	// convert the integer address into string presentation
+	intIPtoStringIP(address, newConnectionInfo->connect_buffer.stringAddress, 16);
+
+	// add the rest of the info to the info object
+	newConnectionInfo->connect_buffer.service = service;
+	newConnectionInfo->connect_buffer.port = port;
+	newConnectionInfo->connect_buffer.protocol = protocol;
+
+	// copy buffer to space and set length
+	newConnectionInfo->connect_buffer.overlap.eventType = POLYM_EVENT_CONNECT;
+	newConnectionInfo->connect_buffer.overlap.eventInfo = newConnectionInfo;
+	initializeOverlap(&newConnectionInfo->connect_buffer.overlap);
+
+	PostQueuedCompletionStatus(completionPort, 0, (ULONG_PTR)NULL, (OVERLAPPED*)&newConnectionInfo->connect_buffer.overlap);
+
 }
 
 ///<summary> Recv command for a socket, using its protocol's recv command. </summary>
@@ -210,7 +237,7 @@ void unlockConnectionMutex(POLYM_CONNECTION *connection)
 DWORD WINAPI eventListener(LPVOID dummy)
 {
 
-	while (1) {
+	for (;;) {
 		// return values for GetQueuedCompletionStatus
 		uint32_t bytesTansferred;
 		POLYM_CONNECTION *connection;
@@ -222,9 +249,26 @@ DWORD WINAPI eventListener(LPVOID dummy)
 		switch (overlap->eventType)
 		{
 
+		case POLYM_EVENT_ACCEPT:
+
+			//TODO: implement
+
+			break;
+
 		case POLYM_EVENT_CONNECT:
 
 			//TODO: implement
+
+		{
+			memory_allocation *allocation = (memory_allocation*)overlap->eventInfo;
+			uint16_t connectionID;
+
+			uint16_t resultCode = initializeOutgoingConnection(allocation->connect_buffer.stringAddress, allocation->connect_buffer.port, allocation->connect_buffer.protocol, &connectionID);
+
+			//TODO: send PEER_CONNECTION or CONNECTION_ERROR messages to the requesting service connection as appropriate
+		}
+
+			break;
 
 		case POLYM_EVENT_LISTEN: // Recieved data on one of the sockets that are listening.
 
@@ -240,20 +284,31 @@ DWORD WINAPI eventListener(LPVOID dummy)
 			//rearm the connection on the listen list
 			WSARecv(connection->socket, &connection->buffer, 1, &connection->byteCount, &connection->flags, (OVERLAPPED*)&connection->overlap, NULL);
 
+			break;
+
 		case POLYM_EVENT_ASYNC_SEND: // An asynchrounous send has completed
 
+			// free the memory allocation
+			EnterCriticalSection(&messageSpaceCriticalSection);
 			message_buffer_array_free(&messageSpace, ((message_buffer*)overlap->eventInfo)->index);
-			continue;
+			LeaveCriticalSection(&messageSpaceCriticalSection);
+
+			break;
 
 		case POLYM_EVENT_SHUTDOWN: // This thread has recieved a shutdown event
+
+			// decrement the number of threads and then exit
 			EnterCriticalSection(&numWorkerThreadsCriticalSection);
-			numWorkerThreads--;
+			--numWorkerThreads;
 			LeaveCriticalSection(&numWorkerThreadsCriticalSection);
 			ExitThread(0);
+
 			return 0;
 
 		default:
 			ExitThread(0); // TODO: critical error log and exit
+
+			return 0;
 		}
 	}
 }
@@ -537,6 +592,7 @@ int compareAddresses(struct in_addr address1, struct in_addr address2)
 }
 
 ///<summary> Checks if a given address is already connected to the server. </summary>
+///<returns> The peer ID of the connection if the conneciton is found, -1 if not. </returns>
 int addressConnected(char *stringAddress, uint16_t port, uint8_t protocol)
 {
 	struct in_addr address1, *address2;
@@ -548,9 +604,21 @@ int addressConnected(char *stringAddress, uint16_t port, uint8_t protocol)
 	{
 		address2 = (struct in_addr*)&connections[x]->address;
 		if (0 != compareAddresses(address1, *address2) && port == ((struct sockaddr_in*)address2)->sin_port && protocol == connections[x]->protocol)
-			return x;
+			return connections[x]->info.connectionID;
 	}
 	return -1;
+}
+
+///<summary> Checks if a given address is already connected to the server. </summary>
+///<returns> The peer ID of the connection if the conneciton is found, -1 if not. </returns>
+int intAddressConnected(uint32_t address, uint16_t port, uint8_t protocol)
+{
+
+	char stringAddress[16];
+	intIPtoStringIP(address, stringAddress, 16);
+
+	return addressConnected(stringAddress, port, protocol);
+	
 }
 
 ///<summary> Begin the process of initializing the supplied TCP connection. </summary>
@@ -714,6 +782,7 @@ int startListenSocket(char* port)
 	initSocketLib();
 	connectionTimerQueue = CreateTimerQueue();
 
+	// initialize sync objects
 	InitializeCriticalSection(&peerConnectionsCriticalSection);
 	InitializeCriticalSection(&serviceConnectionsCriticalSection);
 	InitializeCriticalSection(&serviceConnectionsCriticalSection);
@@ -722,6 +791,7 @@ int startListenSocket(char* port)
 	InitializeCriticalSection(&numWorkerThreadsCriticalSection);
 	InitializeCriticalSection(&connectionTimerQueueCriticalSection);
 	InitializeCriticalSection(&completionPortCriticalSection);
+	InitializeCriticalSection(&memoryAllocationsCriticalSection);
 
 	struct addrinfo *result = NULL, *ptr = NULL, hints;
 
