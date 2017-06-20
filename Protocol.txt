@@ -67,7 +67,7 @@ what buffer size?
 BEGIN (s==>p p==>p p==>s p==>c)
 Opening connection.
 
-Greets with message "POLY v" with any number of arbitrary bytes afterward. Terminates with \n.
+Greets with message "POLY v" with any number of arbitrary bytes afterward. Terminates with \n. Follows format "PROTOCOL_VERSION, CLIENT_NAME, ARBITRARY BYTES"
 
 2-byte encryption request (0 for no encryption, anything else begins the connection with an encryption negotiation)
 (if enc)
@@ -80,7 +80,7 @@ Greets with message "POLY v" with any number of arbitrary bytes afterward. Termi
 ---------
 (end if peer)
 (if service)
-2-byte service string size (non-zero)
+2-byte service string size (max 256 characters)
 X-byte service string
 -RETURNS-
 2-byte result code (0 if pass, anything else if fail)
@@ -192,20 +192,7 @@ command only
 0008: MESSAGE (s==>p p==>p p==>s)
 The basic building block of POLY. Sends messages from services from peer to peer. 0 is local peer.
 
-0: 2-byte command code
-2: 2-byte source/destination peer id
-4: 2-byte source service id
-6: 2-byte destination service id
-8: 2-byte message length
-10: X-byte message
-10 - 65,546: END
-
-
-
-MESSAGE_SERVICE_TO_SERVICE (s==>s)
-Allows services to send messages to each other.
-
-0: 2-byte command code
+0: 2-byte source/destination peer id
 2: 2-byte source service id
 4: 2-byte destination service id
 6: 2-byte message length
@@ -214,23 +201,32 @@ Allows services to send messages to each other.
 
 
 
+MESSAGE_SERVICE_TO_SERVICE (s==>s)
+Allows services to send messages to each other.
+
+0: 2-byte source service id
+2: 2-byte destination service id
+4: 2-byte message length
+6: X-byte message
+6 - 65,542: END
+
+
+
 MESSAGE_SERVICE_TO_CLIENT (s==>c c==>s)
 Allows clients to send messages to services and vice versa.
 
-0: 2-byte command code
-2: 2-byte source service/client id
-4: 2-byte destination service/client id
-6: 2-byte message length
-8: X-byte message
-8 - 65,544: END
+0: 2-byte source service/client id
+2: 2-byte destination service/client id
+4: 2-byte message length
+6: X-byte message
+6 - 65,542: END
 
 
 
 0009: ERROR (p==>p p==>s)
 
-0: 2-byte command code
-2: 2-byte error code
-
+0: 2-byte error code
+2: END
 
 
 000E: PEER-LIST (s==>p p==>p)

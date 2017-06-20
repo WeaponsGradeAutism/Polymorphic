@@ -27,6 +27,8 @@ connection_array clientConnections; // stores client connections by ID
 CRITICAL_SECTION clientConnectionsCriticalSection; // sync object
 message_buffer_array messageSpace; // stores main service connections by ID
 CRITICAL_SECTION messageSpaceCriticalSection; // sync object
+service_string_array serviceStrings; // stores main service connections by ID
+CRITICAL_SECTION serviceStringsCriticalSection; // sync object
 char serviceString[65536]; // stores the services string for this peer
 CRITICAL_SECTION serviceStringCriticalSection; // sync object
 int numWorkerThreads = 0; // number of worker threads currently active
@@ -117,34 +119,57 @@ VOID CALLBACK newConnectionTimeout(PVOID connection, BOOLEAN fired)
 	closeConnection((POLYM_CONNECTION *)connection);
 }
 
+///<summary> Locks the synchronization object associated with a connection object. </summary>
+void lockConnectionMutex(POLYM_CONNECTION *connection)
+{
+	EnterCriticalSection(connection->connectionMutex);
+}
+
+///<summary> Locks the synchronization object associated with a connection object, using its info object. </summary>
+void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
+{
+	lockConnectionMutex(connection_array_get(&peerConnections, info->connectionID));
+}
+
+///<summary> Unlocks the synchronization object associated with a connection object.</summary>
+void unlockConnectionMutex(POLYM_CONNECTION *connection)
+{
+	LeaveCriticalSection(connection->connectionMutex);
+}
+///<summary> Unlocks the synchronization object associated with a connection object, using its info object. </summary>
+void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
+{
+	unlockConnectionMutex(connection_array_get(&peerConnections, info->connectionID));
+}
+
 // TODO: Standardize error codes and flags.
 ///<summary> Send command for TCP based connections. </summary>
 int tcpSend(SOCKET socket, uint8_t *buffer, uint32_t length, int32_t flags)
 {
-	int index = 0, attempts = 0;
+	uint32_t index = 0, attempts = 0;
 	while (index < length && attempts < 10)
 	{
 		index += send(socket, &buffer[index], length - index, flags);
 		++attempts;
 	}
 
-	if (attempts == 10)
-		return -1;
-	else
-		return 0;
+	return index;
 }
 
 ///<summary> Send command for a socket, using its protocol's send command. </summary>
 int sockSend(void* connection, uint8_t *buffer, uint32_t length)
 {
-	POLYM_CONNECTION* connPointer = ((POLYM_CONNECTION*)connection);
-	switch (connPointer->protocol)
+	int result = -1;
+	lockConnectionMutex(((POLYM_CONNECTION*)connection));
+	switch (((POLYM_CONNECTION*)connection)->protocol)
 	{
 	case POLY_PROTO_TCP:
-		return tcpSend(connPointer->socket, buffer, length, 0);
+		result = tcpSend(((POLYM_CONNECTION*)connection)->socket, buffer, length, 0);
 		break;
 	}
-	return -1;
+
+	unlockConnectionMutex(((POLYM_CONNECTION*)connection));
+	return result;
 }
 
 ///<summary> Recv command for TCP based connections. </summary>
@@ -156,12 +181,11 @@ int tcpRecv(SOCKET socket, uint8_t *buffer, uint32_t length, int32_t flags)
 ///<summary> Recv command for a socket, using its protocol's recv command. </summary>
 int sockRecv(void* connection, uint8_t *buffer, uint32_t length)
 {
-	POLYM_CONNECTION* connPointer = ((POLYM_CONNECTION*)connection);
 
-	switch (connPointer->protocol)
+	switch (((POLYM_CONNECTION*)connection)->protocol)
 	{
 	case POLY_PROTO_TCP:
-		return tcpRecv(connPointer->socket, buffer, length, MSG_WAITALL);
+		return tcpRecv(((POLYM_CONNECTION*)connection)->socket, buffer, length, MSG_WAITALL);
 		break;
 	}
 	return -1;
@@ -198,29 +222,6 @@ int sockSendAsync(void* connection, POLYM_MESSAGE_BUFFER *buffer)
 	return -1;
 }
 
-///<summary> Locks the synchronization object associated with a connection object. </summary>
-void lockConnectionMutex(POLYM_CONNECTION *connection)
-{
-	EnterCriticalSection(connection->connectionMutex);
-}
-
-///<summary> Locks the synchronization object associated with a connection object, using its info object. </summary>
-void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
-{
-	lockConnectionMutex(connection_array_get(&peerConnections, info->connectionID));
-}
-
-///<summary> Unlocks the synchronization object associated with a connection object.</summary>
-void unlockConnectionMutex(POLYM_CONNECTION *connection)
-{
-	LeaveCriticalSection(connection->connectionMutex);
-}
-///<summary> Unlocks the synchronization object associated with a connection object, using its info object. </summary>
-void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info)
-{
-	unlockConnectionMutex(connection_array_get(&peerConnections, info->connectionID));
-}
-
 ///<summary> This is the main event loop that worker threads will run. </summary>
 DWORD WINAPI eventListener(LPVOID dummy)
 {
@@ -251,9 +252,6 @@ DWORD WINAPI eventListener(LPVOID dummy)
 
 			// process the command
 			processCommand((void*)connection, connection->buffer.buf, &connection->info);
-
-			//rearm the connection on the listen list
-			WSARecv(connection->socket, &connection->buffer, 1, &connection->byteCount, &connection->flags, (OVERLAPPED*)&connection->overlap, NULL);
 
 			break;
 
@@ -312,7 +310,7 @@ int serviceStringExists(char* string)
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 	for (int x = 0; x < arraySize; x++) 
 	{
-		if (strcmp(string, connections[x]->info.realm_info.service.serviceString))
+		if (strcmp(string, connections[x]->info.realm_info.service.serviceString->buf))
 			return 1;
 	}
 	return 0;
@@ -368,6 +366,14 @@ int getCurrentClientConnections(void** OUT_connectionArray, unsigned int maxCoun
 	}
 }*/
 
+void concatServiceString(POLYM_SERVICE_STRING *serviceString)
+{
+	EnterCriticalSection(&serviceStringCriticalSection);
+	strcat(serviceString->buf, serviceString->buf);
+	strcat(serviceString->buf, "|");
+	LeaveCriticalSection(&serviceStringCriticalSection);
+}
+
 ///<summary> Rebuilds the server's combined service string. </summary>
 void rebuildServiceString()
 {
@@ -377,8 +383,7 @@ void rebuildServiceString()
 	strcpy(serviceString, "");
 	for (int x = 0; x < connectionCount; x++)
 	{
-		strcat(serviceString, services[x]->info.realm_info.service.serviceString);
-		strcat(serviceString, "|");
+		concatServiceString(services[x]->info.realm_info.service.serviceString);
 	}
 	LeaveCriticalSection(&serviceConnectionsCriticalSection);
 }
@@ -397,10 +402,7 @@ uint16_t allocateNewService(void **out_connectionInfoPointer)
 
 int addNewService(POLYM_CONNECTION_INFO *connection)
 {
-	EnterCriticalSection(&serviceStringCriticalSection);
-	strcat(serviceString, ((POLYM_CONNECTION_INFO*)connection)->realm_info.service.serviceString);
-	strcat(serviceString, "|");
-	LeaveCriticalSection(&serviceStringCriticalSection);
+	concatServiceString(((POLYM_CONNECTION_INFO*)connection)->realm_info.service.serviceString);
 	return 0;
 }
 
@@ -529,6 +531,22 @@ int removeClient(uint16_t clientID)
 	return ret;
 }
 
+POLYM_SERVICE_STRING* allocateServiceString(int length)
+{
+	EnterCriticalSection(&serviceStringsCriticalSection);
+	POLYM_SERVICE_STRING *out_serviceStringPointer = &service_string_array_allocate(&serviceStrings)->buffer_object;
+	LeaveCriticalSection(&serviceStringsCriticalSection);
+	out_serviceStringPointer->stringSize = length;
+	return out_serviceStringPointer;
+}
+
+void freeServiceString(POLYM_SERVICE_STRING *serviceString)
+{
+	EnterCriticalSection(&serviceStringsCriticalSection);
+	connection_array_free(&clientConnections, ((service_string*)serviceString)->index);
+	LeaveCriticalSection(&serviceStringsCriticalSection);
+}
+
 ///<summary> Gets the connection object for the specified peer ID. </summary>
 void* getConnectionFromPeerID(uint16_t peerID)
 {
@@ -604,7 +622,7 @@ void initializeNewTCPConnection(POLYM_CONNECTION *connection)
 	connection->overlap.eventInfo = NULL;
 	connection->overlap.eventType = 0;
 	initializeOverlap(&connection->overlap);
-	connection->buffer.len = 2;
+	connection->buffer.len = 4;
 	connection->buffer.buf = connection->bufferMemory;
 	connection->overlap.hEvent = NULL;
 	connection->byteCount = 0;
@@ -765,6 +783,7 @@ int startListenSocket(char* port)
 	InitializeCriticalSection(&serviceConnectionsCriticalSection);
 	InitializeCriticalSection(&serviceStringCriticalSection);
 	InitializeCriticalSection(&messageSpaceCriticalSection);
+	InitializeCriticalSection(&serviceStringsCriticalSection);
 	InitializeCriticalSection(&numWorkerThreadsCriticalSection);
 	InitializeCriticalSection(&connectionTimerQueueCriticalSection);
 	InitializeCriticalSection(&completionPortCriticalSection);
@@ -775,6 +794,7 @@ int startListenSocket(char* port)
 	connection_array_init(&serviceConnections);
 	connection_array_init(&clientConnections);
 	message_buffer_array_init(&messageSpace);
+	service_string_array_init(&serviceStrings);
 
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;

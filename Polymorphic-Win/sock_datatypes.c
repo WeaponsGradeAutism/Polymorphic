@@ -138,7 +138,7 @@ void message_buffer_init(message_buffer *buffer)
 ///<summary> Initializes the message buffer array at the default size. </summary>
 void message_buffer_array_init(message_buffer_array *vector)
 {
-	message_buffer_array_init_capacity(vector, POLYM_INITIAL_MESSAGE_BUFFER_SIZE);
+	message_buffer_array_init_capacity(vector, POLYM_INITIAL_MESSAGE_BUFFER_STORAGE_SIZE);
 }
 
 ///<summary> Initializes the message buffer array at the given size. </summary>
@@ -173,15 +173,16 @@ void message_buffer_array_extend(message_buffer_array *vector, unsigned int amou
 ///<summary> Finds an unused message buffer in the array, initializes it, and returns a pointer to it. </summary>
 message_buffer* message_buffer_array_allocate(message_buffer_array *vector)
 {
-	for (int x = vector->nextIndex; x < vector->size; x++)
+	for (int scanIndex = vector->nextIndex; scanIndex < vector->size; scanIndex++)
 	{
-		if (vector->messages[x]->index < 0) // empty slot is denoted by an index of < 0
+		if (vector->messages[scanIndex]->index < 0) // empty slot is denoted by an index of < 0
 		{
-			vector->messages[x]->index = x;
+			vector->messages[scanIndex]->index = scanIndex;
+			vector->messages[scanIndex]->buffer_object.containerObject = vector->messages[scanIndex];
 			++vector->count;
-			vector->nextIndex = x + 1;
-			message_buffer_init(vector->messages[x]);
-			return vector->messages[x];
+			vector->nextIndex = scanIndex + 1;
+			message_buffer_init(vector->messages[scanIndex]);
+			return vector->messages[scanIndex];
 		}
 	}
 
@@ -203,6 +204,92 @@ void message_buffer_array_free(message_buffer_array *vector, int index)
 
 ///<summary> Frees the message buffer array object. </summary>
 void message_buffer_array_free_container(message_buffer_array *vector)
+{
+	free(vector->messages);
+}
+
+
+
+//
+//---------------------------------------------------------------------------------------------------------------------------------------------
+// service string array
+//---------------------------------------------------------------------------------------------------------------------------------------------
+
+
+void service_string_init(service_string *service_string) 
+{
+	memset(service_string->buffer_object.buf, 0, POLY_MAX_SERVICE_STRING_SIZE);
+}
+
+///<summary> Initializes the message buffer array at the default size. </summary>
+void service_string_array_init(service_string_array *vector)
+{
+	service_string_array_init_capacity(vector, POLYM_INITIAL_MESSAGE_BUFFER_STORAGE_SIZE);
+}
+
+///<summary> Initializes the message buffer array at the given size. </summary>
+void service_string_array_init_capacity(service_string_array *vector, int size)
+{
+	vector->messages = malloc(sizeof(service_string*) * size);
+	vector->size = size;
+	vector->count = 0;
+	vector->nextIndex = 0;
+
+	for (int x = 0; x < size; ++x)
+	{
+		vector->messages[x] = malloc(sizeof(service_string));
+		vector->messages[x]->index = -1;
+	}
+}
+
+///<summary> Expands the message buffer array by the given amount. </summary>
+void service_string_array_extend(service_string_array *vector, unsigned int amount)
+{
+	int oldsize = vector->size;
+	vector->size += amount;
+	vector->messages = realloc(vector, sizeof(service_string*) * vector->size);
+
+	for (int x = oldsize - 1; x < vector->size; ++x)
+	{
+		vector->messages[x] = malloc(sizeof(service_string));
+		vector->messages[x]->index = -1;
+	}
+}
+
+///<summary> Finds an unused message buffer in the array, initializes it, and returns a pointer to it. </summary>
+service_string* service_string_array_allocate(service_string_array *vector)
+{
+	for (int scanIndex = vector->nextIndex; scanIndex < vector->size; scanIndex++)
+	{
+		if (vector->messages[scanIndex]->index < 0) // empty slot is denoted by an index of < 0
+		{
+			vector->messages[scanIndex]->index = scanIndex;
+			vector->messages[scanIndex]->buffer_object.containerObject = vector->messages[scanIndex];
+			++vector->count;
+			vector->nextIndex = scanIndex + 1;
+			service_string_init(vector->messages[scanIndex]);
+			return vector->messages[scanIndex];
+		}
+	}
+
+	// no open spaces found, expand the buffer for some more messages
+	service_string_array_extend(vector, 10);
+	return service_string_array_allocate(vector);
+}
+
+///<summary> Marks the specified message buffer as freed. </summary>
+void service_string_array_free(service_string_array *vector, int index)
+{
+	vector->messages[index]->index = -1;
+	--vector->count;
+	if (index < vector->nextIndex)
+	{
+		vector->nextIndex = index;
+	}
+}
+
+///<summary> Frees the message buffer array object. </summary>
+void service_string_array_free_container(service_string_array *vector)
 {
 	free(vector->messages);
 }

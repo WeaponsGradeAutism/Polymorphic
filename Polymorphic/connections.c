@@ -4,6 +4,7 @@
 #include <utils.h>
 #include <sock.h>
 #include <openssl\rand.h>
+#include <info_structure.h>
 
 ///<summary> Sends the polymorphic greeting over the supplied connection as a synchronous action. </summary>
 ///<returns> Error code on failure, 0 for success </returns>
@@ -30,11 +31,11 @@ void initializeNewPeerInfo(POLYM_CONNECTION_INFO *connection_info, void *connect
 	int_array_init(&connection_info->realm_info.peer.status.connectedServices);
 	int_array_init(&connection_info->realm_info.peer.status.outboundMessageQueue);
 
-	// set realm to peer
-	connection_info->realm = POLY_REALM_PEER;
-
 	// add new peer to list
 	connection_info->connectionID = peerID;
+
+	// set realm to peer
+	connection_info->realm = POLY_REALM_PEER;
 }
 
 ///<summary> Completely initializes a new POLY connection that has been recieved. Uses synchronous reads and sends. </summary>
@@ -70,6 +71,9 @@ int initializeIncomingConnection(void *connection,  void** out_connectionPointer
 	{
 		uint16_t connectionID = allocateNewPeer(&connection_info);
 
+		// initalize the peer connection
+		initializeNewPeerInfo(connection_info, connection, connectionID);
+
 		//construct the return buffer
 		buffer[0] = 0;
 		buffer[1] = 0; // set the first two bytes (result code) to 0 to indicate success
@@ -79,36 +83,27 @@ int initializeIncomingConnection(void *connection,  void** out_connectionPointer
 			freePeer(connectionID);
 			return POLY_REALM_FAILED;
 		}
-
-		// initalize the peer connection
-		initializeNewPeerInfo(connection_info, connection, connectionID);
 		return POLY_REALM_PEER;
 	}
 
 	case POLY_REALM_SERVICE:
 	{
 		// this connection is a service
-		// initialize new service connection
-		uint16_t connectionID = allocateNewService(&connection_info);
+		
 
 		//attempt to recieve service string size
-		if (2 != sockRecv(connection, buffer, 2))
-		{
-			freeService(connectionID);
-			return POLY_REALM_FAILED;
-		}
+		if (2 != sockRecv(connection, buffer, 2)) return POLY_REALM_FAILED;
 
 		// check validity of service string size, initialize string
 		int serviceStringSize = getShortFromBuffer(buffer);
-		if (serviceStringSize == 0)
-		{
-			freeService(connectionID);
-			return POLY_REALM_FAILED;
-		}
-		connection_info->realm_info.service.serviceString = malloc(sizeof(uint8_t) * serviceStringSize);
+		if (serviceStringSize == 0) return POLY_REALM_FAILED;
+
+		// initialize new service connection
+		uint16_t connectionID = allocateNewService(&connection_info);
+		connection_info->realm_info.service.serviceString = allocateServiceString(serviceStringSize);
 
 		//get the service string
-		if (serviceStringSize != sockRecv(connection, connection_info->realm_info.service.serviceString, serviceStringSize))
+		if (serviceStringSize != sockRecv(connection, connection_info->realm_info.service.serviceString->buf, serviceStringSize))
 		{
 			freeService(connectionID);
 			return POLY_REALM_FAILED;
@@ -120,14 +115,14 @@ int initializeIncomingConnection(void *connection,  void** out_connectionPointer
 		buffer[0] = 0;
 		buffer[1] = 0; // set the first two bytes (result code) to 0 to indicate success
 
-		if (2 != sockSend(connection, buffer, 8))
+		if (2 != sockSend(connection, buffer, 2))
 		{
 			// if for some reason this fails, we need to remove the connection from the service list
 			freeService(connectionID);
 			return POLY_REALM_SERVICE; // do not return fail so that the connection isn't closed twice
 		}
-		connection_info->realm = POLY_REALM_SERVICE;
 		connection_info->connectionID = connectionID;
+		connection_info->realm = POLY_REALM_SERVICE;
 		return POLY_REALM_SERVICE;
 	}
 
@@ -135,6 +130,10 @@ int initializeIncomingConnection(void *connection,  void** out_connectionPointer
 
 	{
 		uint16_t connectionID = allocateNewClient(&connection_info);
+
+		// initalize the client connection
+		connection_info->connectionID = connectionID;
+		connection_info->realm = POLY_REALM_CLIENT;
 
 		//construct the return buffer
 		buffer[0] = 0;
@@ -145,11 +144,8 @@ int initializeIncomingConnection(void *connection,  void** out_connectionPointer
 			freeClient(connectionID);
 			return POLY_REALM_FAILED;
 		}
-
-		// initalize the client connection
-		connection_info->realm = POLY_REALM_CLIENT;
-		connection_info->connectionID = connectionID;
-		return POLY_REALM_PEER;
+		
+		return POLY_REALM_CLIENT;
 
 	default:
 		return POLY_REALM_FAILED;
@@ -164,21 +160,22 @@ int initializeIncomingConnection(void *connection,  void** out_connectionPointer
 ///<param name='protocol'> The protocol the connection will use. </param>
 ///<param name='out_connectionPointer'> (OUT) The connection object for the newly initialized connection. </param>
 ///<returns> Error code on failure, result code from remote server on success. <returns>
-uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t protocol, uint16_t *out_connectionID)
+uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t protocol, POLYM_CONNECTION_INFO **out_connectionInfo)
 {
 	POLYM_CONNECTION_INFO *connection_info;
 
 	uint16_t connectionID = allocateNewPeer(&connection_info);
 
 	char l4PortString[6];
-	void *connection = openNewConnection(ipAddress, _itoa(l4Port, l4PortString, 10), &connection_info, protocol);
+	_itoa(l4Port, l4PortString, 10);
+	void *connection = openNewConnection(ipAddress, l4PortString, &connection_info, protocol);
 
 	if (connection == NULL)
 		return POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL;
 
 	uint8_t buffer[500];
 
-	if (6 != sockRecv(connection, buffer, 6))
+	if (6 != sockRecv(connection, buffer, 6)) // recieve "POLY v" from greeting
 	{
 		sendErrorCode(POLY_COMMAND_CONNECT_ERROR_CONNECTION_FAIL, connection);
 		removeConnection(connection_info);
@@ -186,7 +183,7 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 	}
 
 	int index = 6;
-	for (; index <= POLYM_GREETING_MAX_LENGTH; ++index)
+	for (; index <= POLYM_GREETING_MAX_LENGTH; ++index) // recieve the rest of the greeting
 	{
 
 		if (1 != sockRecv(connection, &buffer[index], 1))
@@ -205,8 +202,8 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 	if (index > POLYM_GREETING_MAX_LENGTH) // greeting is too long, close the connection
 		closeConnectionSocket(connection);
 
-	insertShortIntoBuffer(buffer, 0); // encryption mode
-	insertShortIntoBuffer(&buffer[2], 1); // realm code
+	insertShortIntoBuffer(buffer, POLY_ENC_NONE); // encryption mode
+	insertShortIntoBuffer(&buffer[2], POLY_REALM_PEER); // realm code
 
 	sockSend(connection, buffer, 4); // send the connection request
 
@@ -221,7 +218,7 @@ uint16_t initializeOutgoingConnection(char *ipAddress, uint16_t l4Port, uint8_t 
 
 	// TODO: send service update request
 
-	*out_connectionID = connectionID;
+	*out_connectionInfo = connection_info;
 	return getShortFromBuffer(buffer); //return result code recieved from remote server
 
 }

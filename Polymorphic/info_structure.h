@@ -8,6 +8,13 @@
 #define POLYM_SERVICE_MAX_PEER_CONNECTIONS 100
 #define POLYM_PEER_MAX_SERVICE_CONNECTIONS 20
 
+typedef struct
+{
+	char buf[POLY_MAX_SERVICE_STRING_SIZE]; // Buffer size range: POLY_MAX_SERVICE_STRING_SIZE
+	int stringSize;
+	void* containerObject; // used internally to track the message_buffer object that contains this one
+} POLYM_SERVICE_STRING;
+
 // realm specific connection state; initialized in connections.c when connections are initialized
 // Data is MUTABLE.
 typedef struct
@@ -31,7 +38,7 @@ typedef struct
 typedef struct
 {
 	POLYM_SERVICE_STATUS status;
-	char* serviceString; // the string that defines this service
+	POLYM_SERVICE_STRING* serviceString; // the string that defines this service
 } POLYM_SERVICE_INFO;
 
 typedef struct

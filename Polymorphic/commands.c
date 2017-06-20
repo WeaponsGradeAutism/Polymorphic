@@ -11,12 +11,13 @@
 
 int sendDisconnect(void *connection, uint16_t disconnectCode)
 {
-	uint8_t buffer[4]; // create a buffer for operations
+	uint8_t buffer[POLY_COMMAND_DISCONNECT_MAX_SIZE]; // create a buffer for operations
 
-	insertShortIntoBuffer(buffer, POLY_COMMAND_DISCONNECT); // set command header to DISCONNECT
-	insertShortIntoBuffer(&buffer[2], disconnectCode); // add the disconnection code
+	insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_CODE], POLY_COMMAND_DISCONNECT); // set command header to DISCONNECT
+	insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_ID], 0);
+	insertShortIntoBuffer(&buffer[POLY_COMMAND_CONNECT_ERROR_OFFSET_DISCONNECT_CODE], disconnectCode); // add the disconnection code
 
-	if (4 == sockSend(connection, buffer, 4)) // attempt to send the command
+	if (sockSend(connection, buffer, 4) == POLY_COMMAND_DISCONNECT_MAX_SIZE) // attempt to send the command
 	{
 		POLYM_CONNECTION_INFO *connection_info = getInfoFromConnection(connection);
 		removeConnection(connection_info); // if successful, cleanup the connection and return no error
@@ -42,29 +43,30 @@ int trySockRecv(void *connection, uint8_t* buffer, uint32_t length)
 	}
 }
 
-void sendError(void* connection, uint16_t errorCode)
+void sendError(void* connection, uint16_t errorCode, uint16_t indentifier)
 {
 	uint8_t *buffer[POLY_COMMAND_ERROR_MAX_SIZE];
 
-	insertShortIntoBuffer(buffer, POLY_COMMAND_ERROR);
+	insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_CODE], POLY_COMMAND_ERROR);
+	insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_CODE], indentifier);
 	insertShortIntoBuffer(&buffer[POLY_COMMAND_ERROR_OFFSET_ERROR_CODE], errorCode);
 
 	sockSend(connection, buffer, POLY_COMMAND_ERROR_MAX_SIZE);
 }
 
-void sendErrorToPeer(uint16_t peerID, uint16_t errorCode)
+void sendErrorToPeer(uint16_t peerID, uint16_t errorCode, uint16_t indentifier)
 {
-	sendError(getConnectionFromPeerID(peerID), errorCode);
+	sendError(getConnectionFromPeerID(peerID), errorCode, indentifier);
 }
 
-void sendErrorToService(uint16_t serviceID, uint16_t errorCode)
+void sendErrorToService(uint16_t serviceID, uint16_t errorCode, uint16_t indentifier)
 {
-	sendError(getConnectionFromServiceID(serviceID), errorCode);
+	sendError(getConnectionFromServiceID(serviceID), errorCode, indentifier);
 }
 
-void sendErrorToClient(uint16_t clientID, uint16_t errorCode)
+void sendErrorToClient(uint16_t clientID, uint16_t errorCode, uint16_t indentifier)
 {
-	sendError(getConnectionFromClientID(clientID), errorCode);
+	sendError(getConnectionFromClientID(clientID), errorCode, indentifier);
 }
 
 void sendPeerDisconnected(void* connection, uint16_t peerID)
@@ -72,8 +74,9 @@ void sendPeerDisconnected(void* connection, uint16_t peerID)
 
 	uint8_t *buffer[POLY_COMMAND_PEER_DISCONNECTED_MAX_SIZE];
 
-	insertShortIntoBuffer(buffer, POLY_COMMAND_CONNECT_ERROR);
-	insertLongIntoBuffer(&buffer[2], peerID);
+	insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_CODE], POLY_COMMAND_CONNECT_ERROR);
+	insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_ID], 0);
+	insertLongIntoBuffer(&buffer[POLY_COMMAND_PEER_DISCONNECTED_OFFSET_PEER_ID], peerID);
 
 	sockSend(connection, buffer, POLY_COMMAND_PEER_DISCONNECTED_MAX_SIZE);
 }
@@ -82,7 +85,8 @@ void sendConnectErrorToService(void* connection, uint32_t address, uint16_t port
 {
 	int8_t *buffer[POLY_COMMAND_CONNECT_ERROR_MAX_SIZE];
 
-	insertShortIntoBuffer(buffer, POLY_COMMAND_CONNECT_ERROR);
+	insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_CODE], POLY_COMMAND_CONNECT_ERROR);
+	insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_ID], 0);
 	insertLongIntoBuffer(&buffer[POLY_COMMAND_CONNECT_ERROR_OFFSET_IPV4_ADDRESS], address);
 	insertShortIntoBuffer(&buffer[POLY_COMMAND_CONNECT_ERROR_OFFSET_LAYER4_PORT], port);
 	insertShortIntoBuffer(&buffer[POLY_COMMAND_CONNECT_ERROR_OFFSET_PROTOCOL], protocol);
@@ -97,7 +101,7 @@ void sendConnectErrorToService(void* connection, uint32_t address, uint16_t port
 3. associate the resource with the connecter
 4. return the resource identifier
 */
-void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
+void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info, uint16_t identifier)
 {
 
 	uint8_t buffer[POLY_COMMAND_CONNECT_MAX_SIZE];
@@ -124,13 +128,13 @@ void recvConnect(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	case POLY_REALM_PEER:
 
 		rearmListenSocket(connection);
-		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND, identifier);
 		break;
 
 	case POLY_REALM_CLIENT:
 
 		rearmListenSocket(connection);
-		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND, identifier);
 		break;
 
 	}
@@ -157,7 +161,7 @@ int sendMessageOut(uint16_t peerID, uint8_t *buffer, int length)
 	return 0;
 }
 
-void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
+void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info, uint16_t identifier)
 {
 
 	switch (connection_info->realm)
@@ -170,32 +174,36 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint16_t peerID, messageLength;
 		int messageSize;
 
-		insertShortIntoBuffer(buffer, POLY_COMMAND_MESSAGE);
-		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH))
+		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH - POLY_COMMAND_MESSAGE_OFFSET_PEER_ID))
 		{
 			rearmListenSocket(connection);
-			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL, identifier);
 			return;
 		}
 		else
 		{
-			peerID = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID]);
 			messageLength = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(&buffer[POLY_COMMAND_MESSAGE_OFFSET_SOURCE_ID], connection_info->connectionID);
 		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength))
 		{
 			rearmListenSocket(connection);
-			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL, identifier);
 			return;
 		}
 
 		rearmListenSocket(connection);
 
-		messageSize = 10 + messageLength;
+		peerID = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID]);
 
-		if (sendMessageOut(peerID, buffer, messageSize) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
-			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_CODE], POLY_COMMAND_MESSAGE);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_ID], identifier);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_MESSAGE_OFFSET_SOURCE_ID], connection_info->connectionID);
+
+		messageSize = messageLength + POLY_COMMAND_MESSAGE_OFFSET_MESSAGE;
+
+		int result = sendMessageOut(peerID, buffer, messageSize);
+		if (result != 0)
+			sendError(connection, result, identifier);
 
 		break;
 	}
@@ -207,32 +215,39 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint16_t destID, messageLength;
 		int messageSize;
 
-		insertShortIntoBuffer(buffer, POLY_COMMAND_MESSAGE);
-		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH))
+		
+		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_HEADER_SIZE], POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH - POLY_COMMAND_MESSAGE_OFFSET_PEER_ID))
 		{
 			rearmListenSocket(connection);
-			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL, identifier);
 			return;
 		}
 		else
 		{
-			destID = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_OFFSET_DESTINATION_ID]);
+			
 			messageLength = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(&buffer[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID], connection_info->connectionID);
+		
 		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_MESSAGE_OFFSET_MESSAGE], messageLength))
 		{
 			rearmListenSocket(connection);
-			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL, identifier);
 			return;
 		}
 
 		rearmListenSocket(connection);
 
-		messageSize = 10 + messageLength;
+		destID = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_OFFSET_DESTINATION_ID]);
 
-		if (sendMessageIn(destID, buffer, messageLength) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
-			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_CODE], POLY_COMMAND_MESSAGE);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_ID], identifier);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_MESSAGE_OFFSET_PEER_ID], connection_info->connectionID);
+
+		messageSize = messageLength + POLY_COMMAND_MESSAGE_OFFSET_MESSAGE;
+
+		int result = sendMessageIn(destID, buffer, messageLength);
+		if (result != 0)
+			sendError(connection, result, identifier);
 
 		break;
 	}
@@ -241,7 +256,7 @@ void recvMessage(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	{
 
 		rearmListenSocket(connection);
-		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND, identifier);
 		break;
 
 	}
@@ -262,7 +277,7 @@ int sendMessageService(uint16_t destID, uint8_t *buffer, int length)
 	return 0;
 }
 
-void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info)
+void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info, uint16_t identifier)
 {
 	switch (connection_info->realm)
 	{
@@ -273,33 +288,38 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 		uint8_t buffer[POLY_COMMAND_MESSAGE_SERVICE_MAX_SIZE];
 		uint16_t destID, messageLength;
 		int messageSize;
-
-		insertShortIntoBuffer(buffer, POLY_COMMAND_MESSAGE_SERVICE);
-		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH))
+		
+		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID], POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH - POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID))
 		{
 			rearmListenSocket(connection);
-			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL, identifier);
 			return;
 		}
 		else
 		{
-			destID = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(&buffer[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID], connection_info->connectionID);
+		
 		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE], messageLength))
 		{
 			rearmListenSocket(connection);
-			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL, identifier);
 			return;
 		}
 
 		rearmListenSocket(connection);
 
-		messageSize = 8 + messageLength;
+		destID = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_DESTINATION_ID]);
 
-		if (sendMessageService(destID, buffer, messageSize) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
-			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_CODE], POLY_COMMAND_MESSAGE_SERVICE);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_ID], identifier);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_MESSAGE_SERVICE_OFFSET_SOURCE_ID], connection_info->connectionID);
+
+		messageSize = messageLength + POLY_COMMAND_MESSAGE_SERVICE_OFFSET_MESSAGE;
+
+		int result = sendMessageService(destID, buffer, messageSize);
+		if (result != 0)
+			sendError(connection, result, identifier);
 
 		break;
 	}
@@ -308,7 +328,7 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	{
 
 		rearmListenSocket(connection);
-		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND, identifier);
 		break;
 
 	}
@@ -317,7 +337,7 @@ void recvMessageService(void *connection, POLYM_CONNECTION_INFO *connection_info
 	{
 
 		rearmListenSocket(connection);
-		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND, identifier);
 		break;
 
 	}
@@ -348,7 +368,7 @@ int sendMessageClientOut(uint16_t destID, uint8_t *buffer, int length)
 	return 0;
 }
 
-void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
+void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info, uint16_t identifier)
 {
 
 	switch (connection_info->realm)
@@ -358,7 +378,7 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 	{
 
 		rearmListenSocket(connection);
-		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND);
+		sendError(connection, POLY_ERROR_DISALLOWED_COMMAND, identifier);
 		break;
 
 	}
@@ -369,32 +389,36 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint16_t destID, messageLength;
 		int messageSize;
 
-		insertShortIntoBuffer(buffer, POLY_COMMAND_MESSAGE_CLIENT);
-		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH))
+		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_HEADER_SIZE], POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH))
 		{
 			rearmListenSocket(connection);
-			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL, identifier);
 			return;
 		}
 		else
 		{
-			destID = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(&buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->connectionID);
 		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength))
 		{
 			rearmListenSocket(connection);
-			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL, identifier);
 			return;
 		}
 
 		rearmListenSocket(connection);
 
-		messageSize = 8 + messageLength;
+		destID = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
 
-		if (sendMessageClientIn(destID, buffer, messageSize) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
-			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_CODE], POLY_COMMAND_MESSAGE_CLIENT);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_ID], identifier);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->connectionID);
+
+		messageSize = messageLength + POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE;
+
+		int result = sendMessageClientIn(destID, buffer, messageSize);
+		if (result != 0)
+			sendError(connection, result, identifier);
 
 		break;
 
@@ -404,59 +428,69 @@ void recvMessageClient(void *connection, POLYM_CONNECTION_INFO *connection_info)
 		uint8_t buffer[POLY_COMMAND_MESSAGE_SERVICE_MAX_SIZE];
 		uint16_t destID, messageLength;
 		int messageSize;
-
-		insertShortIntoBuffer(buffer, POLY_COMMAND_MESSAGE_CLIENT);
-		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_OFFSET], POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH))
+		
+		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_HEADER_SIZE], POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH))
 		{
 			rearmListenSocket(connection);
-			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL, identifier);
 			return;
 		}
 		else
 		{
-			destID = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
 			messageLength = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE_LENGTH]);
 		}
-		insertShortIntoBuffer(&buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->connectionID);
 		if (0 != trySockRecv(connection, &buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE], messageLength))
 		{
 			rearmListenSocket(connection);
-			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL);
+			sendError(connection, POLY_ERROR_TRANSMISSION_FAIL, identifier);
 			return;
 		}
 
 		rearmListenSocket(connection);
 
-		messageSize = 8 + messageLength;
+		destID = getShortFromBuffer(&buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_DESTINATION_ID]);
 
-		if (sendMessageClientOut(destID, buffer, messageSize) == POLY_ERROR_SERVICE_DOES_NOT_EXIST)
-			sendError(connection, POLY_ERROR_SERVICE_DOES_NOT_EXIST);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_CODE], POLY_COMMAND_MESSAGE_CLIENT);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_HEADER_ID], identifier);
+		insertShortIntoBuffer(&buffer[POLY_COMMAND_MESSAGE_CLIENT_OFFSET_SOURCE_ID], connection_info->connectionID);
+
+		messageSize = messageLength + POLY_COMMAND_MESSAGE_CLIENT_OFFSET_MESSAGE;
+
+		int result = sendMessageClientOut(destID, buffer, messageSize);
+		if (result != 0)
+			sendError(connection, result, identifier);
 
 		break;
 	}
+
+	default:
+		rearmListenSocket(connection);
+		break;
+
 	}
 }
 
 // big, dumb switch block
-void processCommand(void *connection, uint8_t *command, POLYM_CONNECTION_INFO *connection_info)
+void processCommand(void *connection, uint8_t *buffer, POLYM_CONNECTION_INFO *connection_info)
 {
 
-	uint16_t commandLong = getShortFromBuffer(command);
+	uint16_t command = getShortFromBuffer(&buffer[POLY_COMMAND_HEADER_CODE]);
+	uint16_t identifier = getShortFromBuffer(&buffer[POLY_COMMAND_HEADER_ID]);
 
-	switch (commandLong)
+	switch (command)
 	{
 
 	case POLY_COMMAND_CONNECT:
-		recvConnect(connection, connection_info);
+		recvConnect(connection, connection_info, identifier);
 		break;
 	case POLY_COMMAND_MESSAGE:
-		recvMessage(connection, connection_info);
+		recvMessage(connection, connection_info, identifier);
 		break;
 	case POLY_COMMAND_MESSAGE_SERVICE:
-		recvMessageService(connection, connection_info);
+		recvMessageService(connection, connection_info, identifier);
 		break;
 	case POLY_COMMAND_MESSAGE_CLIENT:
-		recvMessageClient(connection, connection_info);
+		recvMessageClient(connection, connection_info, identifier);
 		break;
 	case POLY_COMMAND_DISCONNECT:
 		//recvDisconnect(connection_info);

@@ -9,6 +9,7 @@ int sockRecv(void* connection, uint8_t *buffer, uint32_t length);
 int sockSend(void* connection, uint8_t *buffer, uint32_t length);
 
 void* openNewConnection(char *ipAddress, char *l4Port, POLYM_CONNECTION_INFO **out_connectionInfo, uint8_t protocol);
+int closeConnectionSocket(void *connection);
 
 void lockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info);
 void unlockConnectionMutexByInfo(POLYM_CONNECTION_INFO *info);
@@ -23,7 +24,8 @@ int removePeer(uint16_t peerID);
 uint16_t allocateNewClient(void **out_connectionInfoPointer);
 int removeClient(uint16_t clientID);
 void* freeClient(uint16_t clientID);
-int closeConnectionSocket(void *connection);
+POLYM_SERVICE_STRING* allocateServiceString(int length);
+void freeServiceString(POLYM_SERVICE_STRING *serviceString);
 
 void* getConnectionFromPeerID(uint16_t peerID);
 void* getConnectionFromServiceID(uint16_t serviceID);

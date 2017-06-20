@@ -7,7 +7,8 @@
 
 #define POLYM_SERVICE_ARRAY_GETALL_OVERFLOW -1
 
-#define POLYM_INITIAL_MESSAGE_BUFFER_SIZE 10
+#define POLYM_INITIAL_MESSAGE_BUFFER_STORAGE_SIZE 10
+#define POLYM_INITIAL_SERVICE_STRING_STORAGE_SIZE 10
 #define POLYM_INITIAL_CONNECTION_STORAGE_SIZE 100
 
 typedef struct {
@@ -55,7 +56,7 @@ typedef struct {
 	int32_t byteCount; // bytecount for listening event
 	int32_t flags; // used for IOCP listening event
 	WSABUF buffer; // buffer where IOCP data is stored before completion packet is passed for listening event
-	uint8_t bufferMemory[2]; // memory storage for the buf element of WSABUF, used to recieve command code
+	uint8_t bufferMemory[4]; // memory storage for the buf element of WSABUF, used to recieve command code
 	POLYM_OVERLAPPED overlap; // reused overlapped info for listening event
 
 	int index; // used to keep track of position in connection array
@@ -106,3 +107,23 @@ void message_buffer_array_init_capacity(message_buffer_array *vector, int size);
 message_buffer* message_buffer_array_allocate(message_buffer_array *vector);
 void message_buffer_array_free(message_buffer_array *vector, int index);
 void message_buffer_array_free_container(message_buffer_array *vector);
+
+
+
+typedef struct {
+	POLYM_SERVICE_STRING buffer_object; // largest possible POLY message
+	int index; // this message's position in the message array, set to -1 if currently not in use
+} service_string;
+
+typedef struct {
+	service_string **messages; // pointer to a message_buffer* array
+	int size; // the current size of the message array
+	int count; // the number of messages currently on the array
+	int nextIndex; // the next index to scan for openings in the array
+} service_string_array;
+
+void service_string_array_init(service_string_array *vector);
+void service_string_array_init_capacity(service_string_array *vector, int size);
+service_string* service_string_array_allocate(service_string_array *vector);
+void service_string_array_free(service_string_array *vector, int index);
+void service_string_array_free_container(service_string_array *vector);
